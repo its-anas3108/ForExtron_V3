@@ -1,0 +1,152 @@
+"""
+crud.py – Async MongoDB CRUD operations using Motor.
+"""
+
+import logging
+from typing import List, Optional
+from datetime import datetime, timezone
+from motor.motor_asyncio import AsyncIOMotorClient
+from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+_client: Optional[AsyncIOMotorClient] = None
+_db = None
+
+
+async def init_db():
+    global _client, _db
+    try:
+        _client = AsyncIOMotorClient(settings.MONGO_URI, serverSelectionTimeoutMS=2000)
+        _db = _client[settings.MONGO_DB_NAME]
+        # Create indexes
+        await _db.candles.create_index([("pair", 1), ("timestamp", -1)])
+        await _db.signals.create_index([("pair", 1), ("timestamp", -1)])
+        await _db.trades.create_index([("pair", 1), ("entry_time", -1)])
+        await _db.agent_logs.create_index([("timestamp", -1)])
+        logger.info(f"✅ MongoDB connected: {settings.MONGO_DB_NAME}")
+    except Exception as e:
+        logger.error(f"❌ MongoDB connection failed. Running in memory-only mode. Error: {e}")
+        _client = None
+        _db = None
+
+
+def _get_db():
+    return _db
+
+
+# ── Candles ────────────────────────────────────────────────────────────────────
+async def insert_candle(candle: dict):
+    db = _get_db()
+    if db is None: return
+    await db.candles.update_one(
+        {"pair": candle["pair"], "timestamp": candle["timestamp"]},
+        {"$set": candle},
+        upsert=True,
+    )
+
+
+async def get_recent_candles(pair: str, limit: int = 200, timeframe: str = "M5") -> List[dict]:
+    db = _get_db()
+    if db is None: return []
+    cursor = db.candles.find(
+        {"pair": pair, "timeframe": timeframe},
+        {"_id": 0}
+    ).sort("timestamp", -1).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    return list(reversed(docs))
+
+
+# ── Signals ────────────────────────────────────────────────────────────────────
+async def insert_signal(signal: dict):
+    db = _get_db()
+    if db is None: return
+    await db.signals.insert_one(signal)
+
+
+async def get_latest_signal(pair: str) -> Optional[dict]:
+    db = _get_db()
+    if db is None: return None
+    doc = await db.signals.find_one(
+        {"pair": pair}, {"_id": 0}, sort=[("timestamp", -1)]
+    )
+    return doc
+
+
+async def get_signals_history(pair: str, limit: int = 50) -> List[dict]:
+    db = _get_db()
+    if db is None: return []
+    cursor = db.signals.find(
+        {"pair": pair}, {"_id": 0}
+    ).sort("timestamp", -1).limit(limit)
+    return await cursor.to_list(length=limit)
+
+
+# ── Trades ─────────────────────────────────────────────────────────────────────
+async def insert_trade(trade: dict):
+    db = _get_db()
+    if db is None: return
+    await db.trades.insert_one(trade)
+
+
+async def get_recent_trades(pair: str = None, limit: int = 20) -> List[dict]:
+    db = _get_db()
+    if db is None: return []
+    query = {"pair": pair} if pair else {}
+    cursor = db.trades.find(query, {"_id": 0}).sort("entry_time", -1).limit(limit)
+    return await cursor.to_list(length=limit)
+
+
+async def update_trade_result(trade_id: str, result: dict):
+    db = _get_db()
+    if db is None: return
+    await db.trades.update_one({"_id": trade_id}, {"$set": result})
+
+
+# ── Agent Logs ─────────────────────────────────────────────────────────────────
+async def log_agent_event(event: dict):
+    db = _get_db()
+    if db is None: return
+    event["timestamp"] = datetime.now(timezone.utc).isoformat()
+    await db.agent_logs.insert_one(event)
+
+
+async def get_agent_logs(limit: int = 50) -> List[dict]:
+    db = _get_db()
+    if db is None: return []
+    cursor = db.agent_logs.find({}, {"_id": 0}).sort("timestamp", -1).limit(limit)
+    return await cursor.to_list(length=limit)
+
+
+# ── Performance Metrics ────────────────────────────────────────────────────────
+async def upsert_metrics(metrics: dict):
+    db = _get_db()
+    if db is None: return
+    await db.performance_metrics.update_one(
+        {"pair": metrics["pair"], "period": metrics.get("period", "daily")},
+        {"$set": metrics},
+        upsert=True,
+    )
+
+
+async def get_metrics(pair: str) -> Optional[dict]:
+    db = _get_db()
+    if db is None: return None
+    return await db.performance_metrics.find_one({"pair": pair}, {"_id": 0})
+
+
+# ── Chat History ───────────────────────────────────────────────────────────────
+async def save_chat_message(message: dict):
+    db = _get_db()
+    if db is None: return
+    await db.chat_history.insert_one(message)
+
+
+async def get_chat_history(session_id: str, limit: int = 20) -> List[dict]:
+    db = _get_db()
+    if db is None: return []
+    cursor = db.chat_history.find(
+        {"session_id": session_id}, {"_id": 0}
+    ).sort("timestamp", -1).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    return list(reversed(docs))
