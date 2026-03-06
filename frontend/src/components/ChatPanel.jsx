@@ -42,7 +42,7 @@ export default function ChatPanel({ instrument }) {
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            message: `👋 Hello! I'm FXGuru Pro AI. Ask me about signals, regime, market structure, or INR pairs.\n\nTry: "Why HOLD?" or "What regime is active?"`,
+            message: `Hello! I'm FXGuru Pro AI. Ask me about signals, regime, market structure, or INR pairs.\n\nTry: "Why HOLD?" or "What regime is active?"`,
             timestamp: new Date().toISOString(),
         }
     ])
@@ -72,7 +72,7 @@ export default function ChatPanel({ instrument }) {
             const detail = err?.response?.data?.detail || err?.response?.data?.response || err?.message || 'Unknown error'
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                message: `⚠️ Error: ${detail}`,
+                message: `Error: ${detail}`,
                 timestamp: new Date().toISOString(),
             }])
         } finally {

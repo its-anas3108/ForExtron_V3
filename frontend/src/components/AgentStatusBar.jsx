@@ -33,8 +33,8 @@ export default function AgentStatusBar({ agentStatus }) {
             <div className="flex items-center justify-between mb-3">
                 <p className="text-xs text-text-secondary uppercase tracking-wider">Agent Status</p>
                 <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ${overallHealthy
-                        ? 'bg-accent-green/10 text-accent-green'
-                        : 'bg-accent-red/10 text-accent-red'
+                    ? 'bg-accent-green/10 text-accent-green'
+                    : 'bg-accent-red/10 text-accent-red'
                     }`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${overallHealthy ? 'animate-pulse bg-accent-green' : 'bg-accent-red'}`} />
                     {overallHealthy ? 'All Systems OK' : 'Attention Required'}
@@ -61,15 +61,15 @@ export default function AgentStatusBar({ agentStatus }) {
 
             {/* Risk detail */}
             {risk.hold_mode && (
-                <div className="mt-3 bg-accent-red/10 border border-accent-red/30 rounded-xl px-4 py-2 text-xs text-accent-red">
-                    ⛔ {risk.hold_reason}
+                <div className="mt-3 bg-accent-red/10 border border-accent-red/30 rounded-xl px-4 py-2 text-xs text-accent-red flex items-center gap-1.5">
+                    <Shield size={12} /> {risk.hold_reason}
                 </div>
             )}
 
             {/* Drift detail */}
             {drift.retrain_triggered && (
-                <div className="mt-2 bg-accent-gold/10 border border-accent-gold/30 rounded-xl px-4 py-2 text-xs text-accent-gold">
-                    🔁 Retrain triggered: {drift.reason}
+                <div className="mt-2 bg-accent-gold/10 border border-accent-gold/30 rounded-xl px-4 py-2 text-xs text-accent-gold flex items-center gap-1.5">
+                    <Activity size={12} /> Retrain triggered: {drift.reason}
                 </div>
             )}
 

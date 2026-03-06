@@ -146,23 +146,23 @@ class StreamHandler:
             await self._process_closed_candle(instrument, closed)
 
     async def _process_closed_candle(self, instrument: str, candle: dict):
-        """Full pipeline: store → features → regime → models → signal → broadcast."""
+        """Full pipeline: store → broadcast → features → regime → models → signal."""
         try:
             # 1. Persist raw candle
             await insert_candle(candle)
 
-            # 2. Fetch recent candles for feature computation
+            # 2. Broadcast live candle to WebSocket clients immediately
+            await manager.broadcast_candle(instrument, candle)
+
+            # 3. Fetch recent candles for feature computation
             recent = await get_recent_candles(instrument, limit=settings.LOOKBACK_CANDLES + 10)
             if len(recent) < 20:
-                return  # Not enough data
+                return  # Not enough data for indicators
 
             df = pd.DataFrame(recent)
             df = compute_indicators(df)
             df = compute_regime_features(df)
             df = self.structure_engine.compute(df)
-
-            # 3. Broadcast live candle to WebSocket clients
-            await manager.broadcast_candle(instrument, candle)
 
             # 4. Trigger full analysis pipeline (import here to avoid circular)
             from decision.decision_engine import DecisionEngine

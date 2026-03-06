@@ -6,6 +6,9 @@ import re
 from typing import Tuple
 
 INTENTS = {
+    "hello_help": [
+        r"hello", r"hi", r"help", r"what can you do", r"how do i use this",
+    ],
     "explain_signal": [
         r"why (hold|buy|sell)", r"explain (signal|decision|recommendation)",
         r"what (is|does) the (signal|recommendation|decision)",
@@ -45,6 +48,11 @@ INTENTS = {
     ],
     "inr_inquiry": [
         r"(usd|eur|gbp)[\s_]?inr", r"indian rupee", r"rupee", r"inr",
+    ],
+    "navigate_website": [
+        r"dark mode", r"theme", r"trade journal", r"journal", r"history",
+        r"timeline", r"price ticker", r"ticker", r"demo trade", r"place trade",
+        r"dashboard", r"features", r"new features",
     ],
 }
 

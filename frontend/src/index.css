@@ -2,22 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light Theme (default) ───────────────────────────────────────────────── */
 :root {
   --bg-primary: #F8FAFC;
   --bg-secondary: #F1F5F9;
   --bg-card: #FFFFFF;
+  --bg-hover: #E2E8F0;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --border: #E2E8F0;
+  --border-hover: #CBD5E1;
   --accent-green: #059669;
   --accent-red: #DC2626;
   --accent-gold: #D97706;
+  --accent-blue: #3B82F6;
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --chart-grid: #E2E8F0;
+  --scrollbar-track: #F1F5F9;
+  --scrollbar-thumb: #CBD5E1;
+  --scrollbar-thumb-hover: #94A3B8;
+}
+
+/* ── Dark Theme ──────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-primary: #0B0F19;
+  --bg-secondary: #111827;
+  --bg-card: #1A1F2E;
+  --bg-hover: #252B3B;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --border: #1E293B;
+  --border-hover: #334155;
+  --accent-green: #00D4AA;
+  --accent-red: #FF4757;
+  --accent-gold: #F59E0B;
+  --accent-blue: #60A5FA;
+  --nav-bg: rgba(11, 15, 25, 0.95);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --card-shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --chart-grid: #1E293B;
+  --scrollbar-track: #111827;
+  --scrollbar-thumb: #334155;
+  --scrollbar-thumb-hover: #475569;
 }
 
 * {
   box-sizing: border-box;
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease;
 }
 
 body {
   background-color: var(--bg-primary);
-  color: #0F172A;
+  color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   margin: 0;
   overflow-x: hidden;
@@ -30,37 +70,36 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* ── Glass Cards ──────────────────────────────────────────────────────────── */
 .glass-card {
-  background: #FFFFFF;
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid #E2E8F0;
+  border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: var(--card-shadow);
 }
 
 .glass-card:hover {
-  border-color: #CBD5E1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--border-hover);
+  box-shadow: var(--card-shadow-hover);
 }
 
 /* ── Gradient Text ────────────────────────────────────────────────────────── */
 .gradient-text {
-  background: linear-gradient(135deg, #059669 0%, #2563EB 50%, #7C3AED 100%);
+  background: linear-gradient(135deg, var(--accent-green) 0%, var(--accent-blue) 50%, #7C3AED 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -68,23 +107,23 @@ body {
 
 /* ── Signal badges ────────────────────────────────────────────────────────── */
 .signal-buy {
-  background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
-  border: 1px solid #059669;
-  color: #059669;
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.08), rgba(5, 150, 105, 0.15));
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
   box-shadow: 0 0 20px rgba(5, 150, 105, 0.12);
 }
 
 .signal-sell {
-  background: linear-gradient(135deg, #FEF2F2, #FECACA);
-  border: 1px solid #DC2626;
-  color: #DC2626;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), rgba(220, 38, 38, 0.15));
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
   box-shadow: 0 0 20px rgba(220, 38, 38, 0.12);
 }
 
 .signal-hold {
-  background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
-  border: 1px solid #D97706;
-  color: #D97706;
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.06), rgba(217, 119, 6, 0.12));
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
 }
 
 /* ── Pulse dot ────────────────────────────────────────────────────────────── */
@@ -92,22 +131,14 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #059669;
+  background: var(--accent-green);
   animation: pulse-ring 2s ease infinite;
 }
 
 @keyframes pulse-ring {
-  0% {
-    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5);
-  }
-
-  70% {
-    box-shadow: 0 0 0 8px rgba(5, 150, 105, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
 }
 
 /* ── Grid layout ──────────────────────────────────────────────────────────── */
@@ -121,16 +152,14 @@ body {
 }
 
 @media (max-width: 1200px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
+  .dashboard-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Progress bar ─────────────────────────────────────────────────────────── */
 .confidence-bar {
   height: 6px;
   border-radius: 3px;
-  background: #E2E8F0;
+  background: var(--bg-hover);
   overflow: hidden;
 }
 
@@ -142,7 +171,7 @@ body {
 
 /* ── Glow button ──────────────────────────────────────────────────────────── */
 .btn-glow {
-  background: linear-gradient(135deg, #059669, #2563EB);
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
   border: none;
   border-radius: 10px;
   color: #FFFFFF;
@@ -156,18 +185,187 @@ body {
   box-shadow: 0 8px 24px rgba(5, 150, 105, 0.3);
 }
 
-.btn-glow:active {
-  transform: translateY(0);
-}
+.btn-glow:active { transform: translateY(0); }
 
 /* ── Chat bubble ──────────────────────────────────────────────────────────── */
 .chat-user {
-  background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.15));
   border-radius: 16px 16px 4px 16px;
 }
 
 .chat-ai {
-  background: #F0FDF4;
-  border: 1px solid #BBF7D0;
+  background: rgba(5, 150, 105, 0.06);
+  border: 1px solid rgba(5, 150, 105, 0.2);
   border-radius: 16px 16px 16px 4px;
 }
+
+/* ── Price Ticker ─────────────────────────────────────────────────────────── */
+.ticker-bar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.ticker-scroll {
+  display: flex;
+  gap: 2rem;
+  padding: 0.5rem 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ticker-scroll::-webkit-scrollbar { display: none; }
+
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.ticker-item:hover {
+  background: var(--bg-hover);
+  transform: scale(1.02);
+}
+
+.ticker-item.active {
+  background: rgba(5, 150, 105, 0.12);
+  border: 1px solid rgba(5, 150, 105, 0.3);
+}
+
+.price-flash-up { animation: flash-green 0.6s ease; }
+.price-flash-down { animation: flash-red 0.6s ease; }
+
+@keyframes flash-green {
+  0%, 100% { color: inherit; }
+  50% { color: var(--accent-green); text-shadow: 0 0 8px rgba(0, 212, 170, 0.4); }
+}
+
+@keyframes flash-red {
+  0%, 100% { color: inherit; }
+  50% { color: var(--accent-red); text-shadow: 0 0 8px rgba(255, 71, 87, 0.4); }
+}
+
+/* ── Toast Notifications ──────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: all;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 300px;
+  max-width: 420px;
+  animation: toast-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(12px);
+}
+
+.toast.toast-exit { animation: toast-out 0.3s ease forwards; }
+
+.toast-buy { border-left: 3px solid var(--accent-green); }
+.toast-sell { border-left: 3px solid var(--accent-red); }
+.toast-info { border-left: 3px solid var(--accent-blue); }
+.toast-success { border-left: 3px solid var(--accent-green); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(100%) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(100%) scale(0.95); }
+}
+
+/* ── Signal Timeline ──────────────────────────────────────────────────────── */
+.timeline-line {
+  position: absolute;
+  left: 11px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--border), transparent);
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 0 2px var(--border);
+  z-index: 1;
+}
+
+.timeline-entry {
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+.timeline-entry:hover { background: var(--bg-hover); }
+
+/* ── Trade Journal ────────────────────────────────────────────────────────── */
+.journal-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.75rem;
+}
+
+.journal-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.65rem;
+}
+
+.journal-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+}
+
+.journal-table tr:hover td { background: var(--bg-hover); }
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in { animation: fade-in 0.4s ease; }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1); }

@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 _client: Optional[AsyncIOMotorClient] = None
 _db = None
 
+# ── In-memory fallback when MongoDB is unavailable ────────────────────────────
+_mem_candles: List[dict] = []
+_mem_signals: List[dict] = []
+_MEM_CANDLE_LIMIT = 500
+_MEM_SIGNAL_LIMIT = 200
+
 
 async def init_db():
     global _client, _db
@@ -38,48 +44,65 @@ def _get_db():
 # ── Candles ────────────────────────────────────────────────────────────────────
 async def insert_candle(candle: dict):
     db = _get_db()
-    if db is None: return
-    await db.candles.update_one(
-        {"pair": candle["pair"], "timestamp": candle["timestamp"]},
-        {"$set": candle},
-        upsert=True,
-    )
+    if db is not None:
+        await db.candles.update_one(
+            {"pair": candle["pair"], "timestamp": candle["timestamp"]},
+            {"$set": candle},
+            upsert=True,
+        )
+    else:
+        _mem_candles.append(candle)
+        if len(_mem_candles) > _MEM_CANDLE_LIMIT:
+            _mem_candles.pop(0)
 
 
 async def get_recent_candles(pair: str, limit: int = 200, timeframe: str = "M5") -> List[dict]:
     db = _get_db()
-    if db is None: return []
-    cursor = db.candles.find(
-        {"pair": pair, "timeframe": timeframe},
-        {"_id": 0}
-    ).sort("timestamp", -1).limit(limit)
-    docs = await cursor.to_list(length=limit)
-    return list(reversed(docs))
+    if db is not None:
+        cursor = db.candles.find(
+            {"pair": pair, "timeframe": timeframe},
+            {"_id": 0}
+        ).sort("timestamp", -1).limit(limit)
+        docs = await cursor.to_list(length=limit)
+        return list(reversed(docs))
+    else:
+        filtered = [c for c in _mem_candles if c.get("pair") == pair and c.get("timeframe", "M5") == timeframe]
+        return filtered[-limit:]
 
 
 # ── Signals ────────────────────────────────────────────────────────────────────
 async def insert_signal(signal: dict):
     db = _get_db()
-    if db is None: return
-    await db.signals.insert_one(signal)
+    if db is not None:
+        await db.signals.insert_one(signal)
+    else:
+        _mem_signals.append(signal)
+        if len(_mem_signals) > _MEM_SIGNAL_LIMIT:
+            _mem_signals.pop(0)
 
 
 async def get_latest_signal(pair: str) -> Optional[dict]:
     db = _get_db()
-    if db is None: return None
-    doc = await db.signals.find_one(
-        {"pair": pair}, {"_id": 0}, sort=[("timestamp", -1)]
-    )
-    return doc
+    if db is not None:
+        doc = await db.signals.find_one(
+            {"pair": pair}, {"_id": 0}, sort=[("timestamp", -1)]
+        )
+        return doc
+    else:
+        matches = [s for s in _mem_signals if s.get("pair") == pair]
+        return matches[-1] if matches else None
 
 
 async def get_signals_history(pair: str, limit: int = 50) -> List[dict]:
     db = _get_db()
-    if db is None: return []
-    cursor = db.signals.find(
-        {"pair": pair}, {"_id": 0}
-    ).sort("timestamp", -1).limit(limit)
-    return await cursor.to_list(length=limit)
+    if db is not None:
+        cursor = db.signals.find(
+            {"pair": pair}, {"_id": 0}
+        ).sort("timestamp", -1).limit(limit)
+        return await cursor.to_list(length=limit)
+    else:
+        matches = [s for s in _mem_signals if s.get("pair") == pair]
+        return list(reversed(matches[-limit:]))
 
 
 # ── Trades ─────────────────────────────────────────────────────────────────────

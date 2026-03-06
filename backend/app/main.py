@@ -53,6 +53,7 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 from routers import signal_router, performance_router, regime_router, chat_router, execution_router, agents_router, explain_router
+from routers import monte_carlo_router, news_router, replay_router, xai_router
 
 app.include_router(signal_router.router, prefix="/api")
 app.include_router(performance_router.router, prefix="/api")
@@ -61,6 +62,10 @@ app.include_router(chat_router.router, prefix="/api")
 app.include_router(execution_router.router, prefix="/api")
 app.include_router(agents_router.router, prefix="/api")
 app.include_router(explain_router.router, prefix="/api")
+app.include_router(monte_carlo_router.router, prefix="/api")
+app.include_router(news_router.router, prefix="/api")
+app.include_router(replay_router.router, prefix="/api")
+app.include_router(xai_router.router, prefix="/api")
 
 
 # ── WebSocket endpoint ────────────────────────────────────────────────────────
@@ -90,3 +95,21 @@ async def websocket_agents(websocket: WebSocket):
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "2.0.0", "instruments": settings.INSTRUMENTS}
+
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist"))
+if os.path.isdir(frontend_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    
+    @app.get("/{full_path:path}")
+    async def serve_react_app(full_path: str):
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Not Found")
+        file_path = os.path.join(frontend_dist, full_path)
+        if file_path != frontend_dist and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(frontend_dist, "index.html"))

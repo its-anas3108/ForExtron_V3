@@ -49,4 +49,31 @@ export const getExecutionStatus = () => api.get('/execute/status').then(r => r.d
 /** Get a plain-English explanation of a Forex term */
 export const explainTerm = (term) => api.get(`/explain/${term}`).then(r => r.data)
 
+// ── Demo Signals ──────────────────────────────────────────────────────────────
+/** Trigger a demo BUY or SELL signal for testing */
+export const triggerDemoSignal = (pair, direction) =>
+    api.post('/demo/signal', { pair, direction }).then(r => r.data)
+
+// ── Live Prices ───────────────────────────────────────────────────────────────
+/** Get live prices for all instruments (for the ticker) */
+export const getPrices = () => api.get('/prices').then(r => r.data)
+
+// ── Monte Carlo Simulator ─────────────────────────────────────────────────────
+/** Run Monte Carlo simulation for a trade setup */
+export const runSimulation = (payload) => api.post('/simulate', payload).then(r => r.data)
+
+// ── News Impact Engine ────────────────────────────────────────────────────────
+/** Get latest news feed */
+export const getNewsFeed = (count = 10) => api.get(`/news/feed?count=${count}`).then(r => r.data)
+/** Get news impact for a specific pair */
+export const getNewsImpact = (pair) => api.get(`/news/impact/${pair}`).then(r => r.data)
+
+// ── Trade Replay Engine ───────────────────────────────────────────────────────
+/** Analyze a completed trade */
+export const analyzeTradeReplay = (trade) => api.post('/replay/analyze', trade).then(r => r.data)
+
+// ── XAI Signal Intelligence ───────────────────────────────────────────────────
+/** Get XAI analysis for a signal */
+export const getSignalIntelligence = (signal) => api.post('/xai/analyze', signal).then(r => r.data)
+
 export default api

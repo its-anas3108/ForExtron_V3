@@ -2,24 +2,26 @@
 import { useState } from 'react'
 import { TrendingUp, TrendingDown, Minus, Shield, Brain, AlertTriangle, Zap, X, CheckCircle } from 'lucide-react'
 import { executeTrade } from '../services/api.js'
+import { addTradeToJournal } from './TradeJournal.jsx'
+import { useToast } from './ToastProvider.jsx'
 
 const DECISION_CONFIG = {
     BUY: {
         icon: TrendingUp,
         className: 'signal-buy',
-        label: '⬆ BUY',
+        label: 'BUY',
         glow: 'rgba(5, 150, 105, 0.1)',
     },
     SELL: {
         icon: TrendingDown,
         className: 'signal-sell',
-        label: '⬇ SELL',
+        label: 'SELL',
         glow: 'rgba(220, 38, 38, 0.1)',
     },
     HOLD: {
         icon: Minus,
         className: 'signal-hold',
-        label: '⏸ HOLD',
+        label: 'HOLD',
         glow: 'rgba(217, 119, 6, 0.08)',
     },
 }
@@ -30,16 +32,18 @@ function GateRow({ label, passed, value }) {
             <span className="text-xs text-text-secondary">{label}</span>
             <div className="flex items-center gap-2">
                 {value && <span className="text-xs text-text-muted font-mono">{value}</span>}
-                <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${passed === true
-                        ? 'bg-accent-green/10 text-accent-green'
-                        : passed === false
-                            ? 'bg-accent-red/10 text-accent-red'
-                            : 'bg-text-muted/10 text-text-muted'
-                        }`}
-                >
-                    {passed === true ? '✓' : passed === false ? '✗' : '—'}
-                </span>
+                {passed !== undefined && (
+                    <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full ${passed === true
+                            ? 'bg-accent-green/10 text-accent-green'
+                            : passed === false
+                                ? 'bg-accent-red/10 text-accent-red'
+                                : 'bg-text-muted/10 text-text-muted'
+                            }`}
+                    >
+                        {passed === true ? 'PASS' : passed === false ? 'FAIL' : '—'}
+                    </span>
+                )}
             </div>
         </div>
     )
@@ -72,14 +76,14 @@ function TradeModal({ signal, onClose, onConfirm, loading, result }) {
                         {result.ok ? (
                             <>
                                 <CheckCircle size={32} className="mx-auto mb-2 text-accent-green" />
-                                <p className="font-bold text-accent-green">Trade Executed! ✅</p>
+                                <p className="font-bold text-accent-green">Trade Executed!</p>
                                 <p className="text-xs text-text-secondary mt-1">OANDA trade ID: {result.tradeId || 'N/A'}</p>
                                 <p className="text-xs text-text-muted mt-1">Practice account — no real money used.</p>
                             </>
                         ) : (
                             <>
                                 <AlertTriangle size={32} className="mx-auto mb-2 text-accent-red" />
-                                <p className="font-bold text-accent-red">Execution Failed ❌</p>
+                                <p className="font-bold text-accent-red">Execution Failed</p>
                                 <p className="text-xs text-text-secondary mt-1">{result.error}</p>
                             </>
                         )}
@@ -156,6 +160,7 @@ export default function SignalCard({ signal, loading }) {
     const [showModal, setShowModal] = useState(false)
     const [tradeLoading, setTradeLoading] = useState(false)
     const [tradeResult, setTradeResult] = useState(null)
+    const addToast = useToast()
 
     const handleTrade = async () => {
         setTradeLoading(true)
@@ -164,9 +169,34 @@ export default function SignalCard({ signal, loading }) {
             const res = await executeTrade(signal.pair, signal.decision, signal.sl, signal.tp)
             const tradeId = res?.oanda_response?.orderFillTransaction?.tradeOpened?.tradeID
             setTradeResult({ ok: true, tradeId })
+
+            // Log to journal
+            addTradeToJournal({
+                pair: signal.pair,
+                direction: signal.decision,
+                entry: signal.entry_price || signal.sl, // fallback
+                sl: signal.sl,
+                tp: signal.tp,
+                rr: signal.rr,
+                confidence: signal.ensemble_probability,
+                status: 'executed',
+                pnl: 0,
+            })
+
+            // Toast notification
+            addToast({
+                type: 'success',
+                title: `Trade Executed — ${signal.decision}`,
+                message: `${signal.pair} at R:R 1:${signal.rr?.toFixed(1)} | ID: ${tradeId || 'demo'}`,
+            })
         } catch (err) {
             const msg = err?.response?.data?.detail || err.message || 'Unknown error'
             setTradeResult({ ok: false, error: msg })
+            addToast({
+                type: 'info',
+                title: 'Trade Failed',
+                message: msg,
+            })
         } finally {
             setTradeLoading(false)
         }
