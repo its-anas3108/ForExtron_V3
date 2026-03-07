@@ -76,4 +76,16 @@ export const analyzeTradeReplay = (trade) => api.post('/replay/analyze', trade).
 /** Get XAI analysis for a signal */
 export const getSignalIntelligence = (signal) => api.post('/xai/analyze', signal).then(r => r.data)
 
+// ── AI Opportunity Recovery ───────────────────────────────────────────────────
+/** Get recovery analysis for past signals */
+export const getRecoveryOpportunities = (pair) => api.get(`/recovery/${pair}`).then(r => r.data)
+
+// ── Global Currency Strength ──────────────────────────────────────────────────
+/** Get 0-100% strength scores for 8 major currencies */
+export const getCurrencyStrength = () => api.get('/currency/strength').then(r => r.data)
+
+// ── AI Liquidity & Pressure Map ───────────────────────────────────────────────
+/** Get synthetic order book depth for the active instrument */
+export const getLiquidityMap = (instrument) => api.get(`/liquidity/${instrument}`).then(r => r.data)
+
 export default api

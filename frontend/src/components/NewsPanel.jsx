@@ -46,7 +46,9 @@ function NewsEvent({ event }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <CatIcon size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                         <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{event.category}</span>
-                        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{event.minutes_ago}m ago</span>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+                            {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                     </div>
                     <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.35, marginBottom: 4 }}>
                         {event.headline}
@@ -97,10 +99,14 @@ export default function NewsPanel({ instrument }) {
         setLoading(true)
         try {
             const [feedRes, impactRes] = await Promise.allSettled([
-                getNewsFeed(8),
+                getNewsFeed(50), // fetch more to ensure we have enough for today
                 getNewsImpact(instrument || 'EUR_USD'),
             ])
-            if (feedRes.status === 'fulfilled') setFeed(feedRes.value.events || [])
+            if (feedRes.status === 'fulfilled') {
+                const today = new Date().toDateString();
+                const todayEvents = (feedRes.value.events || []).filter(e => new Date(e.timestamp).toDateString() === today);
+                setFeed(todayEvents);
+            }
             if (impactRes.status === 'fulfilled') setImpact(impactRes.value)
         } catch (err) {
             console.error('News fetch error:', err)

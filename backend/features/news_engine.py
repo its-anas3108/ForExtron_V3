@@ -1,240 +1,239 @@
 """
-news_engine.py – AI News Impact Engine
-Generates realistic, rotating Forex macro news events
-with sentiment analysis and pair impact scoring.
+news_engine.py – Live Real-Time Macro News Engine
+Fetches live macroeconomic events from Forex Factory's public JSON feed,
+parses the data, and maps it to AI trading insights for the dashboard.
 """
 
-import random
 import time
 import hashlib
-from datetime import datetime, timezone, timedelta
+import requests
+import logging
+from datetime import datetime, timezone
 from typing import Dict, List, Any
 
-# ── News Event Templates ─────────────────────────────────────────────────────
-NEWS_TEMPLATES = [
-    # Central Bank events
-    {
-        "category": "Central Bank",
-        "headlines": [
-            "Federal Reserve holds interest rates steady at {rate}%",
-            "Fed Chair signals potential rate cut in upcoming meetings",
-            "Federal Reserve raises rates by 25bps to {rate}%",
-            "Fed minutes reveal hawkish stance on inflation",
-            "Federal Reserve announces emergency liquidity measures",
-        ],
-        "source": "Federal Reserve",
-        "base_pairs": {"EUR_USD": -1, "GBP_USD": -1, "USD_JPY": 1, "AUD_USD": -1, "USD_INR": 1, "EUR_INR": -1, "GBP_INR": -1},
-        "impact_range": (65, 95),
-    },
-    {
-        "category": "Central Bank",
-        "headlines": [
-            "ECB maintains key rate at {rate}%, signals patience",
-            "ECB President hints at tightening cycle end",
-            "European Central Bank cuts deposit rate by 25bps",
-            "ECB surprises with hawkish forward guidance",
-        ],
-        "source": "European Central Bank",
-        "base_pairs": {"EUR_USD": 1, "EUR_INR": 1, "GBP_USD": 0},
-        "impact_range": (60, 90),
-    },
-    {
-        "category": "Central Bank",
-        "headlines": [
-            "BOJ maintains ultra-loose monetary policy",
-            "Bank of Japan hints at yield curve control adjustment",
-            "BOJ Governor signals policy normalization ahead",
-        ],
-        "source": "Bank of Japan",
-        "base_pairs": {"USD_JPY": -1, "EUR_USD": 0, "GBP_USD": 0},
-        "impact_range": (55, 85),
-    },
-    {
-        "category": "Central Bank",
-        "headlines": [
-            "RBI keeps repo rate unchanged at {rate}%",
-            "Reserve Bank of India surprises with rate hike",
-            "RBI Governor announces forex reserve intervention",
-            "RBI eases capital flow restrictions for FPIs",
-        ],
-        "source": "Reserve Bank of India",
-        "base_pairs": {"USD_INR": -1, "EUR_INR": -1, "GBP_INR": -1},
-        "impact_range": (60, 88),
-    },
-    # Economic Data
-    {
-        "category": "Economic Data",
-        "headlines": [
-            "US Non-Farm Payrolls beat expectations at {value}K jobs",
-            "NFP disappoints: only {value}K jobs added vs {expected}K expected",
-            "US unemployment rate drops to {rate}%, labor market tight",
-            "US jobs report shows mixed signals for Fed policy",
-        ],
-        "source": "Bureau of Labor Statistics",
-        "base_pairs": {"EUR_USD": -1, "GBP_USD": -1, "USD_JPY": 1, "AUD_USD": -1, "USD_INR": 1},
-        "impact_range": (70, 98),
-    },
-    {
-        "category": "Economic Data",
-        "headlines": [
-            "US CPI rises {value}% YoY, above {expected}% forecast",
-            "US inflation cools to {value}%, below expectations",
-            "Core CPI surprises to the upside at {value}%",
-            "US PPI signals easing pipeline inflation",
-        ],
-        "source": "Bureau of Labor Statistics",
-        "base_pairs": {"EUR_USD": -1, "GBP_USD": -1, "USD_JPY": 1, "AUD_USD": -1, "USD_INR": 1},
-        "impact_range": (72, 96),
-    },
-    {
-        "category": "Economic Data",
-        "headlines": [
-            "Eurozone GDP growth surprises at {value}% QoQ",
-            "German manufacturing PMI falls to {value}, contraction deepens",
-            "Eurozone inflation drops to {value}%, ECB relieved",
-        ],
-        "source": "Eurostat",
-        "base_pairs": {"EUR_USD": 1, "EUR_INR": 1},
-        "impact_range": (50, 80),
-    },
-    {
-        "category": "Economic Data",
-        "headlines": [
-            "India GDP growth accelerates to {value}% in Q3",
-            "Indian trade deficit widens to ${value}B, INR under pressure",
-            "India CPI inflation rises to {value}%, above RBI target",
-        ],
-        "source": "Ministry of Statistics",
-        "base_pairs": {"USD_INR": 1, "EUR_INR": 1, "GBP_INR": 1},
-        "impact_range": (55, 82),
-    },
-    # Geopolitical
-    {
-        "category": "Geopolitical",
-        "headlines": [
-            "Middle East tensions escalate, oil prices surge {value}%",
-            "Trade negotiations between US and China resume",
-            "EU imposes new sanctions, Euro volatility expected",
-            "Global risk sentiment improves on ceasefire reports",
-            "OPEC+ announces surprise production cut",
-        ],
-        "source": "Reuters",
-        "base_pairs": {"EUR_USD": 0, "GBP_USD": 0, "USD_JPY": -1, "AUD_USD": -1, "USD_INR": 1},
-        "impact_range": (40, 78),
-    },
-    # Market Sentiment
-    {
-        "category": "Market Sentiment",
-        "headlines": [
-            "US Dollar Index (DXY) breaks above {value} resistance",
-            "Risk-on rally lifts commodity currencies across the board",
-            "Safe-haven flows push JPY and CHF higher",
-            "Carry trade unwind accelerates in Asian session",
-            "Institutional positioning shifts to long USD",
-        ],
-        "source": "Market Analysis",
-        "base_pairs": {"EUR_USD": -1, "GBP_USD": -1, "USD_JPY": 1, "AUD_USD": -1, "USD_INR": 1},
-        "impact_range": (35, 70),
-    },
-]
+import os
 
-# Cache for consistent news within a time window
-_news_cache: Dict[str, Any] = {"events": [], "generated_at": 0}
+import os
 
+logger = logging.getLogger(__name__)
 
-def _generate_event(template: Dict, seed: int) -> Dict[str, Any]:
-    """Generate a single news event from a template with consistent randomization."""
-    rng = random.Random(seed)
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "") # Need to set this in environment
+FINNHUB_NEWS_URL = "https://finnhub.io/api/v1/news"
+FF_CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
-    headline = rng.choice(template["headlines"])
+# Cache for 15 minutes to avoid rate limits
+_news_cache: Dict[str, Any] = {"events": [], "last_fetched": 0}
+CACHE_TTL = 900  # 15 minutes
 
-    # Fill in template variables
-    headline = headline.replace("{rate}", f"{rng.uniform(3.5, 6.5):.2f}")
-    headline = headline.replace("{value}", f"{rng.uniform(0.5, 350):.1f}")
-    headline = headline.replace("{expected}", f"{rng.uniform(0.5, 300):.1f}")
+# Mappings from Country to typical FX pairs
+COUNTRY_PAIR_MAP = {
+    "USD": [("EUR_USD", -1), ("GBP_USD", -1), ("USD_JPY", 1), ("AUD_USD", -1), ("USD_INR", 1)],
+    "EUR": [("EUR_USD", 1), ("EUR_INR", 1)],
+    "GBP": [("GBP_USD", 1), ("GBP_INR", 1)],
+    "JPY": [("USD_JPY", -1)],
+    "AUD": [("AUD_USD", 1)],
+    "CAD": [("USD_CAD", -1)],
+    "CHF": [("USD_CHF", -1)],
+    "NZD": [("NZD_USD", 1)],
+    "CNY": [("USD_JPY", 1), ("AUD_USD", 1)], # Proxies
+}
 
-    # Determine sentiment based on pair impacts
-    impacts = {}
-    overall_direction = 0
-    for pair, base_dir in template["base_pairs"].items():
-        # Add some randomness to the impact direction
-        noise = rng.uniform(-0.3, 0.3)
-        actual_dir = base_dir + noise
-        if abs(actual_dir) < 0.2:
-            pair_sentiment = "neutral"
-        elif actual_dir > 0:
-            pair_sentiment = "bullish"
-        else:
-            pair_sentiment = "bearish"
+def _parse_ff_date(date_str: str) -> datetime:
+    try:
+        return datetime.fromisoformat(date_str)
+    except Exception:
+        return datetime.now(timezone.utc)
 
-        impact_score = rng.randint(*template["impact_range"])
-        impacts[pair] = {
-            "direction": pair_sentiment,
+def _determine_sentiment(text: str) -> str:
+    text = text.lower()
+    bullish_words = ["surge", "jump", "rise", "soar", "gain", "high", "positive", "beat", "up"]
+    bearish_words = ["drop", "fall", "plunge", "decline", "low", "negative", "miss", "down", "cut"]
+    
+    bull_score = sum(1 for w in bullish_words if w in text)
+    bear_score = sum(1 for w in bearish_words if w in text)
+    
+    if bull_score > bear_score:
+        return "bullish"
+    elif bear_score > bull_score:
+        return "bearish"
+    return "neutral"
+
+def fetch_live_news() -> List[Dict[str, Any]]:
+    """Fetches and processes live forex news from Finnhub.io."""
+    global _news_cache
+    now = time.time()
+    
+    if now - _news_cache["last_fetched"] < CACHE_TTL and _news_cache["events"]:
+        return _news_cache["events"]
+
+    if not FINNHUB_API_KEY:
+        logger.warning("FINNHUB_API_KEY is not set. Falling back to Forex Factory RSS.")
+        return fetch_fallback_news(now)
+
+    try:
+        # Finnhub specifically has a forex category
+        params = {"category": "forex", "token": FINNHUB_API_KEY}
+        resp = requests.get(FINNHUB_NEWS_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.error(f"Failed to fetch Finnhub news: {e}")
+        return _news_cache["events"]
+
+    current_time = datetime.now(timezone.utc)
+    processed_events = []
+    
+    for item in data:
+        # Finnhub time is UNIX timestamp
+        event_ts = item.get("datetime", now)
+        event_time = datetime.fromtimestamp(event_ts, tz=timezone.utc)
+        
+        delta = current_time - event_time
+        minutes_ago = int(delta.total_seconds() / 60)
+        
+        # Only show events from today, skip negative (future)
+        if minutes_ago < 0:
+            continue
+            
+        headline = item.get("headline", "")
+        summary = item.get("summary", "")
+        source = item.get("source", "Finnhub")
+        
+        # Analyze sentiment
+        sentiment = _determine_sentiment(headline + " " + summary)
+        
+        # USER REQUEST: "dont show neutral news"
+        if sentiment == "neutral":
+            continue
+            
+        impact_score = 60 if sentiment == "bullish" else 80  # Heuristic
+
+        # Finnhub related field usually contains pairs/symbols like "EUR,USD"
+        related = item.get("related", "")
+        affected_pairs = {}
+        
+        if related:
+            # Simple heuristic mapping based on related
+            for symbol in related.split(","):
+                sym = symbol.strip().upper()
+                if len(sym) >= 3:
+                    pair_name = f"{sym}_USD" # Default to USD pair assumption for tagging
+                    affected_pairs[pair_name] = {
+                        "direction": sentiment,
+                        "impact_score": impact_score
+                    }
+                    
+        # If no explicit pairs found, make it a general macro impact
+        if not affected_pairs:
+            affected_pairs["GLOBAL_FX"] = {
+                "direction": sentiment,
+                "impact_score": impact_score
+            }
+            
+        processed_events.append({
+            "id": str(item.get("id", hashlib.md5(headline.encode()).hexdigest()[:12])),
+            "headline": headline,
+            "source": source,
+            "category": "Live Forex News",
+            "sentiment": sentiment,
             "impact_score": impact_score,
-        }
-        overall_direction += actual_dir
+            "affected_pairs": affected_pairs,
+            "timestamp": event_time.isoformat(),
+            "minutes_ago": minutes_ago
+        })
 
-    if overall_direction > 0.5:
-        sentiment = "bullish"
-    elif overall_direction < -0.5:
-        sentiment = "bearish"
-    else:
+    # Sort by most recent
+    processed_events.sort(key=lambda x: x["minutes_ago"])
+    
+    _news_cache["events"] = processed_events
+    _news_cache["last_fetched"] = now
+    
+    return processed_events
+
+def fetch_fallback_news(now_timestamp: float) -> List[Dict[str, Any]]:
+    """Fallback parser if Finnhub Key is missing."""
+    global _news_cache
+    try:
+        resp = requests.get(FF_CALENDAR_URL, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.error(f"Fallback parse failed: {e}")
+        return _news_cache["events"]
+
+    current_time = datetime.now(timezone.utc)
+    processed_events = []
+    
+    for item in data:
+        country = item.get("country", "")
+        impact_str = item.get("impact", "Low")
+        event_time = _parse_ff_date(item.get("date", ""))
+        
+        delta = current_time - event_time
+        minutes_ago = int(delta.total_seconds() / 60)
+        
+        if minutes_ago < 0:
+            continue
+            
+        headline = item.get("title", "")
+        impact_score = 85 if impact_str == "High" else 65 if impact_str == "Medium" else 40
+        
+        forecast = item.get("forecast", "")
+        previous = item.get("previous", "")
         sentiment = "neutral"
+        net_dir = 0
+        if forecast and previous:
+            try:
+                f_cln = forecast.replace('%', '').replace('K', '').replace('B', '').replace('M', '').replace(',', '')
+                p_cln = previous.replace('%', '').replace('K', '').replace('B', '').replace('M', '').replace(',', '')
+                if float(f_cln) > float(p_cln):
+                    sentiment, net_dir = "bullish", 1
+                elif float(f_cln) < float(p_cln):
+                    sentiment, net_dir = "bearish", -1
+            except Exception:
+                pass
+                
+        # Skip neutral fallback news per user request
+        if sentiment == "neutral":
+            continue
 
-    # Timestamp: spread events across the last 2 hours
-    minutes_ago = rng.randint(1, 120)
-    event_time = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+        affected_pairs = {}
+        for pair, multiplier in COUNTRY_PAIR_MAP.get(country, []):
+            pair_dir = net_dir * multiplier
+            p_s = "bullish" if pair_dir > 0 else "bearish" if pair_dir < 0 else "neutral"
+            affected_pairs[pair] = {"direction": p_s, "impact_score": impact_score if p_s != "neutral" else 10}
+            
+        processed_events.append({
+            "id": hashlib.md5(f"{headline}{event_time}".encode()).hexdigest()[:12],
+            "headline": headline,
+            "source": "Forex Factory RSS",
+            "category": f"Macro {country} Event",
+            "sentiment": sentiment,
+            "impact_score": impact_score,
+            "affected_pairs": affected_pairs,
+            "timestamp": event_time.isoformat(),
+            "minutes_ago": minutes_ago
+        })
 
-    return {
-        "id": hashlib.md5(f"{seed}{headline}".encode()).hexdigest()[:12],
-        "headline": headline,
-        "source": template["source"],
-        "category": template["category"],
-        "sentiment": sentiment,
-        "impact_score": rng.randint(*template["impact_range"]),
-        "affected_pairs": impacts,
-        "timestamp": event_time.isoformat(),
-        "minutes_ago": minutes_ago,
-    }
-
+    processed_events.sort(key=lambda x: x["minutes_ago"])
+    _news_cache["events"] = processed_events
+    _news_cache["last_fetched"] = now_timestamp
+    return processed_events
 
 def get_news_feed(count: int = 10) -> List[Dict[str, Any]]:
-    """Get the latest simulated news events. Regenerates every 60 seconds."""
-    global _news_cache
-
-    current_window = int(time.time() // 60)  # Changes every minute
-
-    if _news_cache["generated_at"] != current_window:
-        events = []
-        base_seed = current_window * 1000
-
-        # Pick random templates and generate events
-        templates_pool = NEWS_TEMPLATES * 2  # Double the pool
-        rng = random.Random(base_seed)
-        selected = rng.sample(templates_pool, min(count + 3, len(templates_pool)))
-
-        for i, template in enumerate(selected[:count]):
-            event = _generate_event(template, base_seed + i)
-            events.append(event)
-
-        # Sort by recency
-        events.sort(key=lambda e: e["minutes_ago"])
-
-        _news_cache = {"events": events, "generated_at": current_window}
-
-    return _news_cache["events"][:count]
-
+    events = fetch_live_news()
+    return events[:count]
 
 def get_pair_news_impact(pair: str) -> Dict[str, Any]:
-    """Get aggregated news impact for a specific currency pair."""
-    events = get_news_feed(10)
-
+    events = fetch_live_news()
+    
     pair_events = []
     total_bullish = 0
     total_bearish = 0
     total_neutral = 0
 
-    for event in events:
+    # Consider the last 30 events for aggregated impact
+    for event in events[:30]:
         if pair in event["affected_pairs"]:
             impact = event["affected_pairs"][pair]
             pair_events.append({
@@ -267,6 +266,7 @@ def get_pair_news_impact(pair: str) -> Dict[str, Any]:
     else:
         net_sentiment = "neutral"
 
+    # Only return the most recent 10 specific for the pair to the UI
     return {
         "pair": pair,
         "net_sentiment": net_sentiment,
@@ -274,5 +274,5 @@ def get_pair_news_impact(pair: str) -> Dict[str, Any]:
         "bearish_score": bearish_pct,
         "neutral_score": neutral_pct,
         "event_count": len(pair_events),
-        "events": pair_events,
+        "events": pair_events[:10],
     }

@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "mlruns")
     MLFLOW_EXPERIMENT: str = "fxguru_pro"
 
+    # ── Finnhub ─────────────────────────────────────────────────────────────
+    FINNHUB_API_KEY: str = os.getenv("FINNHUB_API_KEY", "")
+
     # ── Paths ────────────────────────────────────────────────────────────────
     MODEL_DIR: str = "models/saved"
 

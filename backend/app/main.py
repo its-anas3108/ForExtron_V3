@@ -53,7 +53,7 @@ app.add_middleware(
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 from routers import signal_router, performance_router, regime_router, chat_router, execution_router, agents_router, explain_router
-from routers import monte_carlo_router, news_router, replay_router, xai_router
+from routers import monte_carlo_router, news_router, replay_router, xai_router, recovery_router, currency_router, liquidity_router
 
 app.include_router(signal_router.router, prefix="/api")
 app.include_router(performance_router.router, prefix="/api")
@@ -66,6 +66,9 @@ app.include_router(monte_carlo_router.router, prefix="/api")
 app.include_router(news_router.router, prefix="/api")
 app.include_router(replay_router.router, prefix="/api")
 app.include_router(xai_router.router, prefix="/api")
+app.include_router(recovery_router.router, prefix="/api")
+app.include_router(currency_router.router, prefix="/api")
+app.include_router(liquidity_router.router)
 
 
 # ── WebSocket endpoint ────────────────────────────────────────────────────────

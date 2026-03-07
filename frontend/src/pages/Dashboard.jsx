@@ -1,6 +1,6 @@
 // Dashboard.jsx – Master dashboard page
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Settings, Bell, Wifi, WifiOff, TrendingUp, TrendingDown, Moon, Sun, LineChart, BarChart2, BookOpen, MapPin, Activity, Newspaper, Repeat, Eye } from 'lucide-react'
+import { RefreshCw, Settings, Bell, Wifi, WifiOff, TrendingUp, TrendingDown, Moon, Sun, LineChart, BarChart2, BookOpen, MapPin, Activity, Newspaper, Repeat, Eye, Clock, Globe, Layers } from 'lucide-react'
 import SignalCard from '../components/SignalCard.jsx'
 import RegimeBadge from '../components/RegimeBadge.jsx'
 import LiveChart from '../components/LiveChart.jsx'
@@ -14,6 +14,9 @@ import MonteCarloPanel from '../components/MonteCarloPanel.jsx'
 import NewsPanel from '../components/NewsPanel.jsx'
 import TradeReplayPanel from '../components/TradeReplayPanel.jsx'
 import SignalIntelligence from '../components/SignalIntelligence.jsx'
+import OpportunityRecovery from '../components/OpportunityRecovery.jsx'
+import CurrencyMap from '../components/CurrencyMap.jsx'
+import LiquidityMap from '../components/LiquidityMap.jsx'
 import { useToast } from '../components/ToastProvider.jsx'
 import { useWebSocket } from '../services/websocket.js'
 import { getSignal, getPerformance, getAgentStatus, getSignalHistory, getInstruments, triggerDemoSignal } from '../services/api.js'
@@ -278,7 +281,7 @@ export default function Dashboard() {
                     <div className="space-y-4">
                         {/* Tab selector */}
                         <div className="flex gap-1 rounded-xl p-1 w-fit flex-wrap" style={{ background: 'var(--bg-secondary)' }}>
-                            {['chart', 'analytics', 'journal', 'intelligence', 'simulator', 'news', 'replay'].map(tab => {
+                            {['chart', 'analytics', 'journal', 'intelligence', 'simulator', 'news', 'recovery', 'global', 'liquidity', 'replay'].map(tab => {
                                 const labels = {
                                     chart: { text: 'Chart', icon: LineChart },
                                     analytics: { text: 'Analytics', icon: BarChart2 },
@@ -286,6 +289,9 @@ export default function Dashboard() {
                                     intelligence: { text: 'Intelligence', icon: Eye },
                                     simulator: { text: 'Simulator', icon: Activity },
                                     news: { text: 'News', icon: Newspaper },
+                                    recovery: { text: 'Recovery', icon: Clock },
+                                    global: { text: 'Global Map', icon: Globe },
+                                    liquidity: { text: 'Liquidity', icon: Layers },
                                     replay: { text: 'Replay', icon: Repeat },
                                 }
                                 const Icon = labels[tab].icon
@@ -314,6 +320,9 @@ export default function Dashboard() {
                         {activeTab === 'intelligence' && <SignalIntelligence signal={signal} />}
                         {activeTab === 'simulator' && <MonteCarloPanel signal={signal} />}
                         {activeTab === 'news' && <NewsPanel instrument={instrument} />}
+                        {activeTab === 'recovery' && <OpportunityRecovery instrument={instrument} />}
+                        {activeTab === 'global' && <CurrencyMap />}
+                        {activeTab === 'liquidity' && <LiquidityMap instrument={instrument} />}
                         {activeTab === 'replay' && <TradeReplayPanel signal={signal} signalHistory={signalHistory} />}
 
                         {/* Chat panel (bottom on small screens) */}

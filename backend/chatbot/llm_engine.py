@@ -4,10 +4,24 @@ Supports Gemini 1.5 Flash (default) and OpenAI GPT-4o-mini.
 Upgraded to act as a friendly Forex educator with plain-English explanations.
 """
 
+import os
 import logging
 from app.config import settings
 
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage
+
 logger = logging.getLogger(__name__)
+
+# Initialize the OpenRouter LLM using user's preferred Nemotron model
+llm = ChatOpenAI(
+    model="stepfun/step-3.5-flash:free",
+    temperature=0.7,
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.environ.get("OPENAI_API_KEY", "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"),
+    request_timeout=60,
+    max_retries=2
+)
 
 SYSTEM_PROMPT = """You are FXGuru Edu — a friendly, expert Forex trading educator built into the FXGuru Pro platform.
 
@@ -51,10 +65,41 @@ INTENT_EXAMPLES = {
 
 
 async def generate_response(intent: str, context: dict, user_message: str) -> str:
-    """Uses the fast, local rule-based engine instead of external APIs to ensure 100% uptime."""
-    # Always use the reliable rule-based response, eliminating API Key errors
-    logger.info("Using local rule-based response engine.")
-    return _fallback_response(intent, context, user_message)
+    """Uses the LangChain ChatOpenAI engine via OpenRouter to generate native responses."""
+    logger.info("Using LangChain ChatOpenAI (OpenRouter) response engine.")
+    
+    # Check glossary first for instant definitions (faster than LLM for static terms)
+    msg_lower = user_message.lower()
+    if intent in ("explain_concept", "learn_forex"):
+        for term, explanation in FOREX_GLOSSARY.items():
+            if term in msg_lower:
+                return f"💡 **{term.upper()}**: {explanation}"
+                
+    # Build System Prompt with context
+    signal = context.get("latest_signal", {})
+    decision = signal.get("decision", "HOLD")
+    regime = signal.get("regime", "unknown")
+    gate_log = signal.get("gate_log", {})
+    
+    # Format current state for the LLM
+    state_str = (
+        f"CURRENT MARKET STATE:\n"
+        f"- Regime: {regime}\n"
+        f"- System Decision: {decision}\n"
+        f"- Failed Gates: {[k for k, v in gate_log.items() if v is False] or 'None'}\n"
+    )
+    
+    dynamic_system_prompt = SYSTEM_PROMPT + "\n\n" + state_str
+    
+    try:
+        response = llm.invoke([
+            SystemMessage(content=dynamic_system_prompt),
+            HumanMessage(content=user_message)
+        ])
+        return response.content
+    except Exception as e:
+        logger.error(f"OpenRouter LLM Error: {e}")
+        return _fallback_response(intent, context, user_message)
 
 
 

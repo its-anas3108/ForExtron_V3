@@ -62,6 +62,7 @@ async def _create_mock_signal(pair: str, direction: str) -> dict:
         },
         "decision": direction,
         "threshold_used": 0.70,
+        "entry": round(close, 5),
         "sl": sl,
         "tp": tp,
         "lot_size": 0.01,
