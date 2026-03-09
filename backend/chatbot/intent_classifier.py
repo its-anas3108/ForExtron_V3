@@ -78,4 +78,4 @@ def classify_intent(message: str) -> Tuple[str, float]:
         confidence = min(1.0, scores[best] / 3)
         return best, confidence
 
-    return "explain_signal", 0.4
+    return "open_query", 0.4

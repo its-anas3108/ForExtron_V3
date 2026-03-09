@@ -1,6 +1,6 @@
 // NewsPanel.jsx – AI News Impact Engine with live sentiment feed
 import { useState, useEffect } from 'react'
-import { Newspaper, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, Landmark, Globe, BarChart3 } from 'lucide-react'
+import { Newspaper, TrendingUp, TrendingDown, Minus, RefreshCw, AlertTriangle, Landmark, Globe, BarChart3, Sparkles } from 'lucide-react'
 import { getNewsFeed, getNewsImpact } from '../services/api.js'
 
 const CATEGORY_ICONS = {
@@ -84,6 +84,20 @@ function NewsEvent({ event }) {
                             </span>
                         )
                     })}
+                </div>
+            )}
+
+            {/* AI Contribution Rationale */}
+            {event.contribution && (
+                <div style={{
+                    marginTop: 8, padding: '8px 10px', borderRadius: 8,
+                    background: 'rgba(56, 189, 248, 0.05)', border: '1px solid rgba(56, 189, 248, 0.15)',
+                    display: 'flex', alignItems: 'flex-start', gap: 8
+                }}>
+                    <Sparkles size={12} style={{ color: '#38bdf8', marginTop: 2, flexShrink: 0 }} />
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
+                        <strong style={{ color: '#38bdf8', fontWeight: 600 }}>ForeXtron:</strong> {event.contribution}
+                    </p>
                 </div>
             )}
         </div>

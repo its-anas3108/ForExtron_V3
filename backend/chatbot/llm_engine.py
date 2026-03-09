@@ -8,50 +8,43 @@ import os
 import logging
 from app.config import settings
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-# Initialize the OpenRouter LLM using user's preferred Nemotron model
-llm = ChatOpenAI(
-    model="stepfun/step-3.5-flash:free",
-    temperature=0.7,
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.environ.get("OPENAI_API_KEY", "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"),
-    request_timeout=60,
-    max_retries=2
+# Configure Gemini
+genai.configure(api_key=settings.GEMINI_API_KEY)
+model = genai.GenerativeModel(
+    model_name=settings.LLM_MODEL_GEMINI,
+    generation_config={
+        "temperature": 0.7,
+        "max_output_tokens": 500,
+    }
 )
 
-SYSTEM_PROMPT = """You are FXGuru Edu — a friendly, expert Forex trading educator built into the FXGuru Pro platform.
+SYSTEM_PROMPT = """You are ForeXtron — a friendly, expert financial assistant and Forex trading educator built into the platform.
 
-Your TWO core jobs:
-1. EXPLAIN FOREX CONCEPTS in plain, beginner-friendly language using real-world analogies.
+Your core jobs are:
+1. EXPLAIN FOREX AND FINANCIAL CONCEPTS in plain, beginner-friendly language using real-world analogies. You are permitted to answer ANY general finance, economy, or trading questions.
 2. EXPLAIN PLATFORM SIGNALS using the live system state data provided to you.
+
+== STRICT DOMAIN FILTER ==
+If the user asks a question that is COMPLETELY UNRELATED to finance, trading, economics, or the platform (e.g. baking recipes, coding, casual chat, etc.), you MUST reply with this exact phrase, word-for-word, and nothing else:
+"hey , glad u had this doubt but i am just an financial aid . SO, ask me questions related that "
 
 == HOW TO TEACH ==
 - ALWAYS start with a simple, plain-English sentence. Then add a real-world analogy.
 - THEN give the technical detail.
 - Use emojis sparingly to make responses friendly (e.g. 📌, 💡, ⚠️).
-- Keep responses concise — 3 to 6 sentences max unless a longer explanation is truly needed.
+- Keep responses concise unless a longer explanation is truly needed.
 - Never use jargon without immediately explaining it in brackets.
-
-== EXAMPLES ==
-Q: What is a pip?
-A: 📌 A pip is the smallest price movement in a currency pair — think of it like a "cent" for exchange rates. For most pairs like EUR/USD, 1 pip = 0.0001 (the 4th decimal place). So if EUR/USD moves from 1.0800 to 1.0801, it moved 1 pip. Your profit/loss per pip depends on your lot size.
-
-Q: What is a Stop Loss?
-A: 💡 A stop loss is your safety net — it automatically closes your trade if the price moves against you by a certain amount, so you don't lose more than you're comfortable with. Think of it like a speed governor on a car that prevents you from going too fast (losing too much). On this platform, SL is always calculated to keep your risk at 1-2% per trade.
-
-Q: Why HOLD?
-A: ⚠️ The system is on HOLD because not all 7 safety gates have passed. [Then cite the specific failed gate from gate_log data.]
 
 == SIGNAL EXPLANATIONS ==
 When explaining platform signals, always cite the specific gate(s) from the gate_log.
 When explaining a HOLD signal, ALWAYS name which gate failed and why it matters.
 For INR pairs, mention relevant macro factors: RBI policy, USD/INR correlation, oil prices.
 
-Remember: You are talking to someone who may be completely new to Forex. Be their friendly guide."""
+Remember: You are talking to someone who may be completely new to Forex and Finance. Be their friendly guide."""
 
 INTENT_EXAMPLES = {
     "explain_signal": "Why HOLD? Why BUY? Explain the signal. What is the current recommendation?",
@@ -65,8 +58,8 @@ INTENT_EXAMPLES = {
 
 
 async def generate_response(intent: str, context: dict, user_message: str) -> str:
-    """Uses the LangChain ChatOpenAI engine via OpenRouter to generate native responses."""
-    logger.info("Using LangChain ChatOpenAI (OpenRouter) response engine.")
+    """Uses the native Gemini Google Generative AI SDK to generate responses."""
+    logger.info("Using Native Gemini response engine.")
     
     # Check glossary first for instant definitions (faster than LLM for static terms)
     msg_lower = user_message.lower()
@@ -75,7 +68,7 @@ async def generate_response(intent: str, context: dict, user_message: str) -> st
             if term in msg_lower:
                 return f"💡 **{term.upper()}**: {explanation}"
                 
-    # Build System Prompt with context
+    # Build context for the LLM
     signal = context.get("latest_signal", {})
     decision = signal.get("decision", "HOLD")
     regime = signal.get("regime", "unknown")
@@ -89,16 +82,14 @@ async def generate_response(intent: str, context: dict, user_message: str) -> st
         f"- Failed Gates: {[k for k, v in gate_log.items() if v is False] or 'None'}\n"
     )
     
-    dynamic_system_prompt = SYSTEM_PROMPT + "\n\n" + state_str
+    full_prompt = f"{SYSTEM_PROMPT}\n\n{state_str}\n\nUser Question: {user_message}"
     
     try:
-        response = llm.invoke([
-            SystemMessage(content=dynamic_system_prompt),
-            HumanMessage(content=user_message)
-        ])
-        return response.content
+        # Note: using async generation if available, else standard
+        response = await model.generate_content_async(full_prompt)
+        return response.text
     except Exception as e:
-        logger.error(f"OpenRouter LLM Error: {e}")
+        logger.error(f"Gemini API Error: {e}")
         return _fallback_response(intent, context, user_message)
 
 
@@ -166,7 +157,7 @@ def _fallback_response(intent: str, context: dict, user_message: str = "") -> st
 
     if intent == "hello_help":
         return (
-            "Hello! I am the FXGuru Pro AI. Let's make trading simpler together.\n\n"
+            "Hello! I am ForeXtron. Let's make trading simpler together.\n\n"
             "Here is how I can assist you:\n\n"
             "I can explain incoming signals. Just ask me 'Why HOLD?' or 'What is the current signal?'\n\n"
             "I can show you our performance metrics. Simply type 'What is our win rate?'\n\n"

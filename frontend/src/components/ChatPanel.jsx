@@ -42,7 +42,7 @@ export default function ChatPanel({ instrument }) {
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            message: `Hello! I'm FXGuru Pro AI. Ask me about signals, regime, market structure, or INR pairs.\n\nTry: "Why HOLD?" or "What regime is active?"`,
+            message: `Hello! I'm ForeXtron. Ask me about signals, regime, market structure, or INR pairs.\n\nTry: "Why HOLD?" or "What regime is active?"`,
             timestamp: new Date().toISOString(),
         }
     ])
@@ -88,7 +88,7 @@ export default function ChatPanel({ instrument }) {
                     <Bot size={16} className="text-accent-green" />
                 </div>
                 <div>
-                    <p className="text-sm font-semibold text-text-primary">FXGuru AI</p>
+                    <p className="text-sm font-semibold text-text-primary">ForeXtron</p>
                     <p className="text-xs text-accent-green flex items-center gap-1">
                         <span className="w-1.5 h-1.5 bg-accent-green rounded-full animate-pulse inline-block" />
                         Online

@@ -12,10 +12,10 @@ router = APIRouter(tags=["news"])
 
 @router.get("/news/feed")
 async def news_feed(count: int = 10):
-    events = get_news_feed(min(count, 20))
+    events = await get_news_feed(min(count, 20))
     return {"events": events, "count": len(events)}
 
 
 @router.get("/news/impact/{pair}")
 async def news_impact(pair: str):
-    return get_pair_news_impact(pair.upper())
+    return await get_pair_news_impact(pair.upper())

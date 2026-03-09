@@ -93,15 +93,23 @@ export default function TradeReplayPanel({ signal, signalHistory }) {
         }
     }
 
-    // Auto-analyze the latest completed signal
+    // Auto-analyze the latest completed signal or replay a historical one
     useEffect(() => {
-        if (signal && signal.decision !== 'HOLD') {
+        if (signal && signal.decision !== 'HOLD' && selectedTrade?.timestamp !== signal.timestamp) {
             const demoPnl = signal.decision === 'BUY'
                 ? Math.round((Math.random() * 60 - 20) * 10) / 10
                 : Math.round((Math.random() * 60 - 20) * 10) / 10
             analyzeTrade({ ...signal, pnl: demoPnl })
+        } else if (!selectedTrade && signalHistory && signalHistory.length > 0) {
+            const lastActive = signalHistory.find(s => s.decision !== 'HOLD')
+            if (lastActive) {
+                const demoPnl = lastActive.decision === 'BUY'
+                    ? Math.round((Math.random() * 60 - 20) * 10) / 10
+                    : Math.round((Math.random() * 60 - 20) * 10) / 10
+                analyzeTrade({ ...lastActive, pnl: demoPnl })
+            }
         }
-    }, [signal?.decision, signal?.pair])
+    }, [signal?.timestamp, signalHistory?.length])
 
     return (
         <div className="glass-card p-4 animate-fade-in">
@@ -109,6 +117,32 @@ export default function TradeReplayPanel({ signal, signalHistory }) {
                 <h3 className="flex items-center gap-1.5" style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     <Repeat size={16} /> AI Trade Replay
                 </h3>
+                {signalHistory && signalHistory.filter(s => s.decision !== 'HOLD').length > 0 && (
+                    <select
+                        onChange={(e) => {
+                            const selected = signalHistory.find(s => s.timestamp === e.target.value)
+                            if (selected) {
+                                const demoPnl = selected.decision === 'BUY'
+                                    ? Math.round((Math.random() * 60 - 20) * 10) / 10
+                                    : Math.round((Math.random() * 60 - 20) * 10) / 10
+                                analyzeTrade({ ...selected, pnl: demoPnl })
+                            }
+                        }}
+                        style={{
+                            background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+                            border: '1px solid var(--border-color)', borderRadius: 6, padding: '4px 8px',
+                            fontSize: '0.75rem', outline: 'none', cursor: 'pointer'
+                        }}
+                        value={selectedTrade?.timestamp || ''}
+                    >
+                        <option value="" disabled>Select historical trade...</option>
+                        {signalHistory.filter(s => s.decision !== 'HOLD').slice(0, 10).map(s => (
+                            <option key={s.timestamp} value={s.timestamp}>
+                                {new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {s.pair.replace('_', '/')} {s.decision}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {!analysis && !loading && (

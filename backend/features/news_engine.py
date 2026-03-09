@@ -8,12 +8,12 @@ import time
 import hashlib
 import requests
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Dict, List, Any
 
 import os
-
-import os
+from chatbot.llm_engine import client, MODEL_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,23 @@ def _determine_sentiment(text: str) -> str:
         return "bearish"
     return "neutral"
 
-def fetch_live_news() -> List[Dict[str, Any]]:
+async def _analyze_contribution(headline: str, summary: str, sentiment: str) -> str:
+    if sentiment == "neutral":
+        return ""
+    try:
+        prompt = f"Analyze this Forex news securely: '{headline} - {summary}'. In exactly one short sentence, explain WHY this is fundamentally {sentiment.upper()} for the relevant currency. Do not use jargon. Start immediately with the reason."
+        response = await client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=60
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"News LLM parsing error: {e}")
+        return "Affects macro supply/demand directly."
+
+async def fetch_live_news() -> List[Dict[str, Any]]:
     """Fetches and processes live forex news from Finnhub.io."""
     global _news_cache
     now = time.time()
@@ -68,7 +84,7 @@ def fetch_live_news() -> List[Dict[str, Any]]:
 
     if not FINNHUB_API_KEY:
         logger.warning("FINNHUB_API_KEY is not set. Falling back to Forex Factory RSS.")
-        return fetch_fallback_news(now)
+        return await fetch_fallback_news(now)
 
     try:
         # Finnhub specifically has a forex category
@@ -142,15 +158,37 @@ def fetch_live_news() -> List[Dict[str, Any]]:
             "minutes_ago": minutes_ago
         })
 
+        # Gather async tasks for LLM contributions
+        llm_tasks = []
+        # To avoid rate limits, limit the LLM calls to top 5 most recent impactful events
+        for item in processed_events[:5]:
+            llm_tasks.append(_analyze_contribution(item["headline"], item["summary"], item["sentiment"]))
+            
+        contributions = await asyncio.gather(*llm_tasks)
+        for i, contrib in enumerate(contributions):
+            processed_events[i]["contribution"] = contrib
+
     # Sort by most recent
     processed_events.sort(key=lambda x: x["minutes_ago"])
+    # Sort by most recent
+    processed_events.sort(key=lambda x: x["minutes_ago"])
+
+    # Gather async tasks for LLM contributions after all events are processed
+    llm_tasks = []
+    # To avoid rate limits, limit the LLM calls to top 5 most recent impactful events
+    for item in processed_events[:5]:
+        llm_tasks.append(_analyze_contribution(item["headline"], item["summary"], item["sentiment"]))
+            
+    contributions = await asyncio.gather(*llm_tasks)
+    for i, contrib in enumerate(contributions):
+        processed_events[i]["contribution"] = contrib
     
     _news_cache["events"] = processed_events
     _news_cache["last_fetched"] = now
     
     return processed_events
 
-def fetch_fallback_news(now_timestamp: float) -> List[Dict[str, Any]]:
+async def fetch_fallback_news(now_timestamp: float) -> List[Dict[str, Any]]:
     """Fallback parser if Finnhub Key is missing."""
     global _news_cache
     try:
@@ -176,6 +214,7 @@ def fetch_fallback_news(now_timestamp: float) -> List[Dict[str, Any]]:
             continue
             
         headline = item.get("title", "")
+        summary = item.get("description", "") # Use description for summary in fallback
         impact_score = 85 if impact_str == "High" else 65 if impact_str == "Medium" else 40
         
         forecast = item.get("forecast", "")
@@ -206,6 +245,7 @@ def fetch_fallback_news(now_timestamp: float) -> List[Dict[str, Any]]:
         processed_events.append({
             "id": hashlib.md5(f"{headline}{event_time}".encode()).hexdigest()[:12],
             "headline": headline,
+            "summary": summary, # Added for LLM analysis
             "source": "Forex Factory RSS",
             "category": f"Macro {country} Event",
             "sentiment": sentiment,
@@ -215,17 +255,32 @@ def fetch_fallback_news(now_timestamp: float) -> List[Dict[str, Any]]:
             "minutes_ago": minutes_ago
         })
 
+    # Sort by most recent
     processed_events.sort(key=lambda x: x["minutes_ago"])
+
+    # Gather async tasks for LLM contributions after all events are processed
+    llm_tasks = []
+    # To avoid rate limits, limit the LLM calls to top 5 most recent impactful events
+    for item in processed_events[:5]:
+        llm_tasks.append(_analyze_contribution(item["headline"], item["summary"], item["sentiment"]))
+            
+    contributions = await asyncio.gather(*llm_tasks)
+    for i, contrib in enumerate(contributions):
+        processed_events[i]["contribution"] = contrib
+
     _news_cache["events"] = processed_events
     _news_cache["last_fetched"] = now_timestamp
     return processed_events
 
-def get_news_feed(count: int = 10) -> List[Dict[str, Any]]:
-    events = fetch_live_news()
-    return events[:count]
+async def get_news_feed(limit: int = 10) -> List[Dict[str, Any]]:
+    """Returns the latest 'limit' news events, filtered to Forex."""
+    events = await fetch_live_news()
+    return events[:limit]
 
-def get_pair_news_impact(pair: str) -> Dict[str, Any]:
-    events = fetch_live_news()
+
+async def get_pair_news_impact(pair: str) -> Dict[str, Any]:
+    """Calculates cumulative impact of recent news for a specific pair."""
+    events = await fetch_live_news()
     
     pair_events = []
     total_bullish = 0

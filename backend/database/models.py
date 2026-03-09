@@ -90,3 +90,37 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str = "default"
     instrument: str = "EUR_USD"
+
+# ── User Authentication & Account Models ────────────────────────────────────
+
+from pydantic import EmailStr
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+
+class UserResponse(BaseModel):
+    id: str = Field(alias="_id")
+    email: EmailStr
+    name: str
+    balance: float
+    created_at: str
+
+class UserInDB(BaseModel):
+    email: str
+    hashed_password: str
+    name: str
+    balance: float = 10000.0  # Default demo starting balance
+    created_at: str = Field(default_factory=lambda: datetime.now().astimezone().isoformat())
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+class AccountSummaryResponse(BaseModel):
+    balance: float
+    equity: float
+    total_pnl: float
+    win_rate: float
+    total_trades: int

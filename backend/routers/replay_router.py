@@ -5,7 +5,7 @@ Analyzes a completed trade and returns explanatory factors + AI insights.
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from features.replay_engine import analyze_trade
 
 router = APIRouter(tags=["replay"])
@@ -23,7 +23,7 @@ class TradeReplayRequest(BaseModel):
     pnl: Optional[float] = -15.0
     regime: Optional[str] = "expansion"
     confidence: Optional[float] = 0.72
-    gate_log: Optional[Dict[str, bool]] = None
+    gate_log: Optional[Dict[str, Any]] = None
     model_contributions: Optional[Dict[str, float]] = None
     duration_minutes: Optional[int] = 45
 

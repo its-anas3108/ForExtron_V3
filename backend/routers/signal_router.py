@@ -4,13 +4,16 @@ signal_router.py – GET /api/signal/{pair} + POST /api/demo/signal
 
 import random
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
+import time
 
 from app.config import settings
 from app.websocket_manager import manager
+from database import crud
 from database.crud import get_latest_signal, get_signals_history, insert_signal
+from dependencies.auth import get_current_user
 
 router = APIRouter(tags=["signals"])
 
@@ -126,8 +129,8 @@ class DemoSignalRequest(BaseModel):
 
 
 @router.post("/demo/signal")
-async def demo_signal(req: DemoSignalRequest):
-    """Generate a realistic BUY or SELL demo signal for testing the dashboard."""
+async def demo_signal(req: DemoSignalRequest, current_email: str = Depends(get_current_user)):
+    """Generate a realistic BUY or SELL demo signal and execute a virtual trade for the user."""
     pair = req.pair
     direction = req.direction.upper()
     if direction not in ("BUY", "SELL"):
@@ -135,7 +138,36 @@ async def demo_signal(req: DemoSignalRequest):
     if pair not in settings.INSTRUMENTS:
         raise HTTPException(status_code=400, detail=f"Unsupported instrument: {pair}")
 
-    return await _create_mock_signal(pair, direction)
+    # 1. Generate the core signal payload
+    signal = await _create_mock_signal(pair, direction)
+    
+    # 2. Automatically execute a virtual trade for the logged-in user
+    profit_loss = round(random.uniform(5.0, 150.0), 2) if random.random() > 0.4 else round(random.uniform(-100.0, -10.0), 2)
+    trade_result = "win" if profit_loss > 0 else "loss"
+    
+    trade = {
+        "user_email": current_email,
+        "pair": pair,
+        "entry_price": signal["price"],
+        "sl": signal["dynamic_sl"],
+        "tp": signal["dynamic_tp"],
+        "lot_size": 0.1,  # Standard virtual mini-lot
+        "direction": direction,
+        "result": trade_result,
+        "pnl": profit_loss,
+        "entry_time": signal["timestamp"],
+        "oanda_trade_id": f"demo_exec_{int(time.time())}"
+    }
+    
+    await crud.insert_trade(trade)
+    
+    # 3. Update their virtual Account Balance
+    user = await crud.get_user_by_email(current_email)
+    if user:
+        new_balance = user.get("balance", 10000.0) + profit_loss
+        await crud.update_user_balance(current_email, new_balance)
+
+    return signal
 
 
 # ── Live Prices for Ticker ───────────────────────────────────────────────────

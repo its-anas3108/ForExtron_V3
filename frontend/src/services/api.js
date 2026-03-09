@@ -6,6 +6,17 @@ const api = axios.create({
     timeout: 15000,
 })
 
+// Add a request interceptor to attach the JWT token globally
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+}, (error) => {
+    return Promise.reject(error);
+});
+
 // ── Signals ──────────────────────────────────────────────────────────────────
 export const getSignal = (pair) => api.get(`/signal/${pair}`).then(r => r.data)
 export const getSignalHistory = (pair, limit = 50) => api.get(`/signals/history/${pair}?limit=${limit}`).then(r => r.data)

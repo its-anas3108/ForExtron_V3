@@ -54,7 +54,10 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 from routers import signal_router, performance_router, regime_router, chat_router, execution_router, agents_router, explain_router
 from routers import monte_carlo_router, news_router, replay_router, xai_router, recovery_router, currency_router, liquidity_router
+from routers import auth_router, account_router
 
+app.include_router(auth_router.router, prefix="/api")
+app.include_router(account_router.router, prefix="/api")
 app.include_router(signal_router.router, prefix="/api")
 app.include_router(performance_router.router, prefix="/api")
 app.include_router(regime_router.router, prefix="/api")

@@ -40,7 +40,41 @@ async def init_db():
 def _get_db():
     return _db
 
+_mem_users = []
 
+# ── Users ──────────────────────────────────────────────────────────────────────
+async def create_user(user: dict):
+    db = _get_db()
+    if db is not None:
+        result = await db.users.insert_one(user)
+        user["_id"] = str(result.inserted_id)
+        return user
+    
+    import uuid
+    user["_id"] = str(uuid.uuid4())
+    _mem_users.append(user)
+    return user
+
+async def get_user_by_email(email: str) -> Optional[dict]:
+    db = _get_db()
+    if db is not None:
+        user = await db.users.find_one({"email": email})
+        if user:
+            user["_id"] = str(user["_id"])
+        return user
+    
+    matches = [u for u in _mem_users if u.get("email") == email]
+    return matches[0] if matches else None
+
+async def update_user_balance(email: str, new_balance: float):
+    db = _get_db()
+    if db is not None:
+        await db.users.update_one({"email": email}, {"$set": {"balance": new_balance}})
+    else:
+        for u in _mem_users:
+            if u.get("email") == email:
+                u["balance"] = new_balance
+                break
 # ── Candles ────────────────────────────────────────────────────────────────────
 async def insert_candle(candle: dict):
     db = _get_db()
@@ -105,11 +139,15 @@ async def get_signals_history(pair: str, limit: int = 50) -> List[dict]:
         return list(reversed(matches[-limit:]))
 
 
+_mem_trades = []
+
 # ── Trades ─────────────────────────────────────────────────────────────────────
 async def insert_trade(trade: dict):
     db = _get_db()
-    if db is None: return
-    await db.trades.insert_one(trade)
+    if db is not None:
+        await db.trades.insert_one(trade)
+    else:
+        _mem_trades.append(trade)
 
 
 async def get_recent_trades(pair: str = None, limit: int = 20) -> List[dict]:
@@ -118,6 +156,16 @@ async def get_recent_trades(pair: str = None, limit: int = 20) -> List[dict]:
     query = {"pair": pair} if pair else {}
     cursor = db.trades.find(query, {"_id": 0}).sort("entry_time", -1).limit(limit)
     return await cursor.to_list(length=limit)
+
+async def get_recent_trades_by_user(email: str, limit: int = 20) -> List[dict]:
+    db = _get_db()
+    if db is not None:
+        query = {"user_email": email}
+        cursor = db.trades.find(query, {"_id": 0}).sort("entry_time", -1).limit(limit)
+        return await cursor.to_list(length=limit)
+    else:
+        filtered = [t for t in _mem_trades if t.get("user_email") == email]
+        return list(reversed(filtered[-limit:]))
 
 
 async def update_trade_result(trade_id: str, result: dict):

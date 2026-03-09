@@ -1,12 +1,11 @@
 // Dashboard.jsx – Master dashboard page
 import { useState, useEffect, useCallback } from 'react'
-import { RefreshCw, Settings, Bell, Wifi, WifiOff, TrendingUp, TrendingDown, Moon, Sun, LineChart, BarChart2, BookOpen, MapPin, Activity, Newspaper, Repeat, Eye, Clock, Globe, Layers } from 'lucide-react'
+import { RefreshCw, Settings, Bell, Wifi, WifiOff, TrendingUp, TrendingDown, Moon, Sun, LineChart, BarChart2, BookOpen, MapPin, Activity, Newspaper, Repeat, Eye, Clock, Globe, Layers, User, LogOut } from 'lucide-react'
 import SignalCard from '../components/SignalCard.jsx'
 import RegimeBadge from '../components/RegimeBadge.jsx'
 import LiveChart from '../components/LiveChart.jsx'
 import AnalyticsPanel from '../components/AnalyticsPanel.jsx'
 import ChatPanel from '../components/ChatPanel.jsx'
-import AgentStatusBar from '../components/AgentStatusBar.jsx'
 import PriceTicker from '../components/PriceTicker.jsx'
 import SignalTimeline from '../components/SignalTimeline.jsx'
 import TradeJournal from '../components/TradeJournal.jsx'
@@ -17,6 +16,8 @@ import SignalIntelligence from '../components/SignalIntelligence.jsx'
 import OpportunityRecovery from '../components/OpportunityRecovery.jsx'
 import CurrencyMap from '../components/CurrencyMap.jsx'
 import LiquidityMap from '../components/LiquidityMap.jsx'
+import AccountSummary from './AccountSummary.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../components/ToastProvider.jsx'
 import { useWebSocket } from '../services/websocket.js'
 import { getSignal, getPerformance, getAgentStatus, getSignalHistory, getInstruments, triggerDemoSignal } from '../services/api.js'
@@ -35,7 +36,7 @@ export default function Dashboard() {
     const [signalHistory, setSignalHistory] = useState([])
     const [candles, setCandles] = useState([])
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState('chart') // 'chart' | 'analytics' | 'journal'
+    const [activeTab, setActiveTab] = useState('account') // 'account' | 'chart' | 'analytics' | 'journal'
     const [lastUpdated, setLastUpdated] = useState(null)
     const [demoLoading, setDemoLoading] = useState(null)
 
@@ -47,6 +48,7 @@ export default function Dashboard() {
 
     const { lastCandle, lastSignal, agentEvent, connected } = useWebSocket(instrument)
     const addToast = useToast()
+    const { logout } = useAuth()
 
     // Apply dark mode
     useEffect(() => {
@@ -159,7 +161,7 @@ export default function Dashboard() {
                         <span className="text-white font-black text-sm">FX</span>
                     </div>
                     <div>
-                        <span className="gradient-text font-black text-lg tracking-tight">FXGuru Pro</span>
+                        <span className="gradient-text font-black text-lg tracking-tight">ForeXtron</span>
                         <p className="text-xs text-text-muted -mt-0.5" style={{ color: 'var(--text-muted)' }}>Institutional AI Platform</p>
                     </div>
                 </div>
@@ -218,6 +220,16 @@ export default function Dashboard() {
                         {isDark ? <Sun size={16} /> : <Moon size={16} />}
                     </button>
 
+                    {/* Logout Button */}
+                    <button
+                        onClick={logout}
+                        className="p-2 rounded-xl transition-colors hover:bg-hover ml-1"
+                        style={{ color: 'var(--accent-red)' }}
+                        title="Sign Out"
+                    >
+                        <LogOut size={16} />
+                    </button>
+
                     {/* Refresh */}
                     <button
                         onClick={fetchAll}
@@ -258,9 +270,6 @@ export default function Dashboard() {
             {/* ── Main Content ─────────────────────────────────────────────────── */}
             <div className="p-4 lg:p-6 space-y-4">
 
-                {/* Agent Status Bar */}
-                <AgentStatusBar agentStatus={agentStatus} />
-
                 {/* Regime + structure badges */}
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <RegimeBadge
@@ -281,8 +290,9 @@ export default function Dashboard() {
                     <div className="space-y-4">
                         {/* Tab selector */}
                         <div className="flex gap-1 rounded-xl p-1 w-fit flex-wrap" style={{ background: 'var(--bg-secondary)' }}>
-                            {['chart', 'analytics', 'journal', 'intelligence', 'simulator', 'news', 'recovery', 'global', 'liquidity', 'replay'].map(tab => {
+                            {['account', 'chart', 'analytics', 'journal', 'intelligence', 'simulator', 'news', 'recovery', 'global', 'liquidity', 'replay'].map(tab => {
                                 const labels = {
+                                    account: { text: 'Account', icon: User },
                                     chart: { text: 'Chart', icon: LineChart },
                                     analytics: { text: 'Analytics', icon: BarChart2 },
                                     journal: { text: 'Journal', icon: BookOpen },
@@ -314,6 +324,7 @@ export default function Dashboard() {
                             })}
                         </div>
 
+                        {activeTab === 'account' && <AccountSummary />}
                         {activeTab === 'chart' && <LiveChart candles={candles} signal={signal} />}
                         {activeTab === 'analytics' && <AnalyticsPanel performance={performance} signalHistory={signalHistory} />}
                         {activeTab === 'journal' && <TradeJournal />}
@@ -366,7 +377,7 @@ export default function Dashboard() {
 
             {/* Footer */}
             <footer className="border-t px-6 py-3 text-center text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-                FXGuru Pro v2.0 · Institutional-grade AI · Not financial advice · Data via OANDA API
+                ForeXtron v2.0 · Institutional-grade AI · Not financial advice · Data via OANDA API
             </footer>
         </div>
     )
