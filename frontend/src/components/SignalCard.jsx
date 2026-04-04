@@ -1,5 +1,6 @@
 // SignalCard.jsx – Main BUY/SELL/HOLD signal display card + Demo Trade button
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts'
 import { TrendingUp, TrendingDown, Minus, Shield, Brain, AlertTriangle, Zap, X, CheckCircle } from 'lucide-react'
 import { executeTrade } from '../services/api.js'
 import { addTradeToJournal } from './TradeJournal.jsx'
@@ -49,11 +50,93 @@ function GateRow({ label, passed, value }) {
     )
 }
 
+function TradeHistoryChart({ pair }) {
+    const [data, setData] = useState([]);
+    
+    useEffect(() => {
+        const updateData = () => {
+            try {
+                const allTrades = JSON.parse(localStorage.getItem('fxguru_trade_journal') || '[]');
+                const pairTrades = allTrades.filter(t => t.pair === pair).slice().reverse();
+                
+                let cumulative = 0;
+                const chartData = pairTrades.map((t, idx) => {
+                    cumulative += (t.pnl || 0);
+                    return {
+                        index: idx,
+                        pnl: t.pnl,
+                        balance: cumulative
+                    };
+                });
+                
+                if (chartData.length > 0) {
+                    chartData.unshift({ index: -1, pnl: 0, balance: 0 });
+                }
+                
+                setData(chartData);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        
+        updateData();
+        
+        window.addEventListener('journal-update', updateData);
+        window.addEventListener('storage', updateData);
+        return () => {
+            window.removeEventListener('journal-update', updateData);
+            window.removeEventListener('storage', updateData);
+        };
+    }, [pair]);
+
+    if (data.length <= 1) {
+        return null;
+    }
+
+    const isProfit = data[data.length - 1].balance >= 0;
+    const color = isProfit ? '#10B981' : '#EF4444'; // accent-green / accent-red
+
+    return (
+        <div className="mb-5">
+            <p className="text-xs text-text-secondary mb-2 uppercase tracking-wider">Trades P&L History ({pair.replace('_', '/')})</p>
+            <div className="h-24 w-full bg-bg-secondary/30 rounded border border-white/5 overflow-hidden p-1">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data}>
+                        <defs>
+                            <linearGradient id={`colorPnL-${pair}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <YAxis domain={['dataMin', 'dataMax']} hide={true} />
+                        <Area 
+                            type="monotone" 
+                            dataKey="balance" 
+                            stroke={color} 
+                            strokeWidth={2}
+                            fillOpacity={1} 
+                            fill={`url(#colorPnL-${pair})`} 
+                            isAnimationActive={false}
+                        />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+            <div className="flex justify-between mt-1 px-1">
+                <span className="text-[10px] text-text-muted">Start</span>
+                <span className={`text-xs font-bold ${isProfit ? 'text-accent-green' : 'text-accent-red'}`}>
+                    ${data[data.length - 1].balance.toFixed(2)}
+                </span>
+            </div>
+        </div>
+    );
+}
+
 // ── Trade Confirmation Modal ──────────────────────────────────────────────────
 function TradeModal({ signal, onClose, onConfirm, loading, result }) {
     const isBuy = signal.decision === 'BUY'
     const colorClass = isBuy ? 'text-accent-green' : 'text-accent-red'
     const bgClass = isBuy ? 'bg-accent-green/10 border-accent-green/30' : 'bg-accent-red/10 border-accent-red/30'
+    const [numTrades, setNumTrades] = useState(1)
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -121,14 +204,22 @@ function TradeModal({ signal, onClose, onConfirm, loading, result }) {
                                     <p className="font-mono text-accent-green text-sm">{signal.tp?.toFixed(5)}</p>
                                 </div>
                             </div>
+                            
+                            <div className="mt-4 pt-4 border-t border-text-muted/20 flex justify-between items-center">
+                                <p className="text-xs text-text-muted">Number of Trades (1-50)</p>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => setNumTrades(Math.max(1, numTrades - 1))} className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">-</button>
+                                    <span className="font-mono text-sm w-4 text-center text-text-primary">{numTrades}</span>
+                                    <button onClick={() => setNumTrades(Math.min(50, numTrades + 1))} className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-hover transition-colors">+</button>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Disclaimer */}
                         <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 mb-4">
                             <AlertTriangle size={14} className="text-amber-400 mt-0.5 shrink-0" />
                             <p className="text-xs text-amber-300 leading-relaxed">
-                                This will execute on your <strong>OANDA Practice account using demo money only</strong>.
-                                No real funds will be used. This is safe for learning and testing.
+                                This will execute <strong>{numTrades} distinct simulated trades</strong> dynamically generating unique simulated P&L for your profile balance simulation.
                             </p>
                         </div>
 
@@ -141,7 +232,7 @@ function TradeModal({ signal, onClose, onConfirm, loading, result }) {
                                 Cancel
                             </button>
                             <button
-                                onClick={onConfirm}
+                                onClick={() => onConfirm(numTrades)}
                                 disabled={loading}
                                 className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'} ${isBuy ? 'bg-accent-green text-bg-primary' : 'bg-accent-red text-white'}`}
                             >
@@ -162,32 +253,44 @@ export default function SignalCard({ signal, loading }) {
     const [tradeResult, setTradeResult] = useState(null)
     const addToast = useToast()
 
-    const handleTrade = async () => {
+    const handleTrade = async (numTrades = 1) => {
         setTradeLoading(true)
         setTradeResult(null)
         try {
-            const res = await executeTrade(signal.pair, signal.decision, signal.sl, signal.tp)
-            const tradeId = res?.oanda_response?.orderFillTransaction?.tradeOpened?.tradeID
+            const res = await executeTrade(signal.pair, signal.decision, signal.sl, signal.tp, numTrades)
+            const tradeId = res?.trades?.[0]?.oanda_trade_id || res?.trade?.oanda_trade_id || 'simulated'
             setTradeResult({ ok: true, tradeId })
 
             // Log to journal
-            addTradeToJournal({
+            const tradesToLog = res?.trades?.length > 0 ? res.trades : [{
                 pair: signal.pair,
                 direction: signal.decision,
-                entry: signal.entry_price || signal.sl, // fallback
+                entry_price: signal.entry_price || signal.sl,
                 sl: signal.sl,
                 tp: signal.tp,
-                rr: signal.rr,
-                confidence: signal.ensemble_probability,
+                rr_achieved: signal.rr,
                 status: 'executed',
-                pnl: 0,
-            })
+                pnl: res?.total_pnl || 0,
+            }];
 
-            // Toast notification
+            tradesToLog.forEach(t => {
+                addTradeToJournal({
+                    pair: t.pair || signal.pair,
+                    direction: t.direction || signal.decision,
+                    entry: t.entry_price || signal.entry_price || signal.sl,
+                    sl: t.sl || signal.sl,
+                    tp: t.tp || signal.tp,
+                    rr: t.rr_achieved || signal.rr,
+                    confidence: signal.ensemble_probability,
+                    status: t.status || 'executed',
+                    pnl: t.pnl || 0,
+                });
+            });
+
             addToast({
                 type: 'success',
-                title: `Trade Executed — ${signal.decision}`,
-                message: `${signal.pair} at R:R 1:${signal.rr?.toFixed(1)} | ID: ${tradeId || 'demo'}`,
+                title: `${numTrades > 1 ? numTrades : 'Trade'} Executed — ${signal.decision}`,
+                message: `${signal.pair} at R:R 1:${signal.rr?.toFixed(1)} | Total P&L: $${res?.total_pnl?.toFixed(2) || '0.00'}`,
             })
         } catch (err) {
             const msg = err?.response?.data?.detail || err.message || 'Unknown error'
@@ -328,6 +431,8 @@ export default function SignalCard({ signal, loading }) {
                 )}
 
                 {/* Decision gates */}
+                <TradeHistoryChart pair={signal.pair} />
+                
                 {Object.keys(gateLog).length > 0 && (
                     <div className="mb-5">
                         <p className="text-xs text-text-secondary mb-2 uppercase tracking-wider flex items-center gap-1">

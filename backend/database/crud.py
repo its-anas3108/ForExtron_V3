@@ -2,6 +2,8 @@
 crud.py – Async MongoDB CRUD operations using Motor.
 """
 
+import os
+import json
 import logging
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -40,7 +42,27 @@ async def init_db():
 def _get_db():
     return _db
 
-_mem_users = []
+_USERS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "users.json")
+
+def _load_mem_users():
+    if os.path.exists(_USERS_FILE):
+        try:
+            with open(_USERS_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load users from json fallback: {e}")
+            return []
+    return []
+
+def _save_mem_users():
+    try:
+        os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
+        with open(_USERS_FILE, "w") as f:
+            json.dump(_mem_users, f, indent=4)
+    except Exception as e:
+        logger.error(f"Failed to save users to json fallback: {e}")
+
+_mem_users = _load_mem_users()
 
 # ── Users ──────────────────────────────────────────────────────────────────────
 async def create_user(user: dict):
@@ -53,6 +75,7 @@ async def create_user(user: dict):
     import uuid
     user["_id"] = str(uuid.uuid4())
     _mem_users.append(user)
+    _save_mem_users()
     return user
 
 async def get_user_by_email(email: str) -> Optional[dict]:
@@ -74,6 +97,7 @@ async def update_user_balance(email: str, new_balance: float):
         for u in _mem_users:
             if u.get("email") == email:
                 u["balance"] = new_balance
+                _save_mem_users()
                 break
 # ── Candles ────────────────────────────────────────────────────────────────────
 async def insert_candle(candle: dict):

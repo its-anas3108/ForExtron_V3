@@ -10,7 +10,7 @@ from features.liquidity_engine import generate_liquidity_map
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-@router.get("/api/liquidity/{instrument}")
+@router.get("/liquidity/{instrument}")
 async def get_liquidity(instrument: str):
     """
     Returns synthetic order book depth (Buy vs Sell pressure) for the given instrument.

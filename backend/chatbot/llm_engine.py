@@ -8,29 +8,34 @@ import os
 import logging
 from app.config import settings
 
-import google.generativeai as genai
+import openai
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)
-model = genai.GenerativeModel(
-    model_name=settings.LLM_MODEL_GEMINI,
-    generation_config={
-        "temperature": 0.7,
-        "max_output_tokens": 500,
-    }
+# Configure OpenRouter (Nvidia Nemotron 120B)
+OPENROUTER_API_KEY = "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"
+MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b:free"
+
+client = openai.AsyncOpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY,
 )
 
 SYSTEM_PROMPT = """You are ForeXtron — a friendly, expert financial assistant and Forex trading educator built into the platform.
 
 Your core jobs are:
-1. EXPLAIN FOREX AND FINANCIAL CONCEPTS in plain, beginner-friendly language using real-world analogies. You are permitted to answer ANY general finance, economy, or trading questions.
-2. EXPLAIN PLATFORM SIGNALS using the live system state data provided to you.
+1. EXPLAIN FOREX AND FINANCIAL CONCEPTS in plain, beginner-friendly language using real-world analogies. High-level technical topics like Liquidity Sweeps, BoS (Break of Structure), and ChoCH (Change of Character) are your specialty.
+2. EXPLAIN PLATFORM FEATURES:
+    - **Live Dashboard**: Our real-time hub for monitoring the 10 major and minor currency pairs.
+    - **Signal Timeline**: A detailed audit log of every AI decision, including which safety gates passed or failed.
+    - **Trade Journal**: Your personal simulator log that tracks performance, win rates, and P&L history.
+    - **Monte Carlo Simulator**: A risk tool that runs thousands of simulations to forecast your account's potential future performance.
+    - **XAI Intelligence**: Our Explainable AI system that breaks down complex neural network decisions into terms humans can understand.
+3. ANALYZE CURRENCY PAIRS: You provide rates and technical analysis for all 10 supported pairs: EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CHF, USD/CAD, NZD/USD, USD/INR, EUR/INR, and GBP/INR.
 
 == STRICT DOMAIN FILTER ==
 If the user asks a question that is COMPLETELY UNRELATED to finance, trading, economics, or the platform (e.g. baking recipes, coding, casual chat, etc.), you MUST reply with this exact phrase, word-for-word, and nothing else:
-"hey , glad u had this doubt but i am just an financial aid . SO, ask me questions related that "
+"hey , glad you had this doubt but I am just an financial aid . So, ask me questions related that "
 
 == HOW TO TEACH ==
 - ALWAYS start with a simple, plain-English sentence. Then add a real-world analogy.
@@ -41,8 +46,8 @@ If the user asks a question that is COMPLETELY UNRELATED to finance, trading, ec
 
 == SIGNAL EXPLANATIONS ==
 When explaining platform signals, always cite the specific gate(s) from the gate_log.
-When explaining a HOLD signal, ALWAYS name which gate failed and why it matters.
-For INR pairs, mention relevant macro factors: RBI policy, USD/INR correlation, oil prices.
+When explaining a HOLD signal, ALWAYS name which gate failed and why it matters (e.g., "Gate 3 failed: Liquidity hasn't been swept yet, meaning the big players haven't entered").
+For INR pairs, mention that we use a high-fidelity polling system and emphasize the impact of RBI policies and oil prices.
 
 Remember: You are talking to someone who may be completely new to Forex and Finance. Be their friendly guide."""
 
@@ -58,15 +63,14 @@ INTENT_EXAMPLES = {
 
 
 async def generate_response(intent: str, context: dict, user_message: str) -> str:
-    """Uses the native Gemini Google Generative AI SDK to generate responses."""
-    logger.info("Using Native Gemini response engine.")
+    """Uses OpenRouter's OpenAI-compatible API to generate responses."""
+    logger.info(f"Using OpenRouter response engine with {MODEL_NAME}.")
     
     # Check glossary first for instant definitions (faster than LLM for static terms)
     msg_lower = user_message.lower()
-    if intent in ("explain_concept", "learn_forex"):
-        for term, explanation in FOREX_GLOSSARY.items():
-            if term in msg_lower:
-                return f"💡 **{term.upper()}**: {explanation}"
+    for term, explanation in FOREX_GLOSSARY.items():
+        if term in msg_lower:
+            return f"💡 **{term.upper()}**: {explanation}"
                 
     # Build context for the LLM
     signal = context.get("latest_signal", {})
@@ -82,14 +86,19 @@ async def generate_response(intent: str, context: dict, user_message: str) -> st
         f"- Failed Gates: {[k for k, v in gate_log.items() if v is False] or 'None'}\n"
     )
     
-    full_prompt = f"{SYSTEM_PROMPT}\n\n{state_str}\n\nUser Question: {user_message}"
-    
     try:
-        # Note: using async generation if available, else standard
-        response = await model.generate_content_async(full_prompt)
-        return response.text
+        response = await client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"{state_str}\n\nUser Question: {user_message}"}
+            ],
+            temperature=0.7,
+            max_tokens=500,
+        )
+        return response.choices[0].message.content
     except Exception as e:
-        logger.error(f"Gemini API Error: {e}")
+        logger.error(f"OpenRouter API Error: {e}")
         return _fallback_response(intent, context, user_message)
 
 
@@ -144,6 +153,11 @@ FOREX_GLOSSARY = {
     "oanda": "OANDA is the Forex broker connected to this platform. Your OANDA Practice account uses demo money, so no real funds are at risk.",
     "inr": "INR pairs use poll-based data updated every 10 seconds instead of live streaming. They are influenced by RBI policy, oil prices, and global USD demand.",
     "rbi": "The Reserve Bank of India sets India's interest rates and monetary policy. Rate changes significantly affect INR pairs.",
+    "monte carlo": "The Monte Carlo Simulator runs 10,000+ random simulations based on your past win rate to predict your future account balance range. It helps you understand risk and 'luck' in trading.",
+    "xai": "XAI stands for Explainable AI. It's our way of showing you EXACTLY why the AI made a decision, instead of just giving you a 'black box' signal.",
+    "safety gates": "These are the 7 criteria that must be met before a live trade is suggested. They include things like RSI (not overbought), Risk Reward (at least 1:2), and Liquidity Sweep.",
+    "journal": "The Trade Journal automatically logs your simulated trades so you can review your history and improve your strategy over time.",
+    "timeline": "The Signal Timeline is the vertical log on the right. It stores every decision the AI makes for the instrument you are viewing.",
 }
 
 

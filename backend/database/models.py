@@ -40,6 +40,7 @@ class Signal(BaseModel):
 
 
 class Trade(BaseModel):
+    user_email: str
     pair: str
     entry_price: float
     exit_price: Optional[float] = None

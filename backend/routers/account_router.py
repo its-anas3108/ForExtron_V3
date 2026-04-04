@@ -26,7 +26,7 @@ async def get_account_summary(current_email: str = Depends(get_current_user)):
     
     return AccountSummaryResponse(
         balance=user["balance"],
-        equity=user["balance"] + total_pnl,  # Simplified logic
+        equity=user["balance"],  # Since all trades are simulated and closed instantly, balance = equity
         total_pnl=total_pnl,
         win_rate=win_rate,
         total_trades=total_trades

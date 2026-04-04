@@ -71,7 +71,7 @@ app.include_router(replay_router.router, prefix="/api")
 app.include_router(xai_router.router, prefix="/api")
 app.include_router(recovery_router.router, prefix="/api")
 app.include_router(currency_router.router, prefix="/api")
-app.include_router(liquidity_router.router)
+app.include_router(liquidity_router.router, prefix="/api")
 
 
 # ── WebSocket endpoint ────────────────────────────────────────────────────────

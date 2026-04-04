@@ -3,14 +3,6 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, User, Zap } from 'lucide-react'
 import { sendChat, getChatHistory } from '../services/api.js'
 
-const SUGGESTED_PROMPTS = [
-    'Why HOLD?',
-    'What regime is active?',
-    'Explain liquidity sweep',
-    'What is BoS?',
-    'Show win rate',
-    'USD INR signal?',
-]
 
 function ChatBubble({ role, message, timestamp }) {
     const isUser = role === 'user'
@@ -42,7 +34,7 @@ export default function ChatPanel({ instrument }) {
     const [messages, setMessages] = useState([
         {
             role: 'assistant',
-            message: `Hello! I'm ForeXtron. Ask me about signals, regime, market structure, or INR pairs.\n\nTry: "Why HOLD?" or "What regime is active?"`,
+            message: `Hello! I'm ForeXtron, your personal financial guide. I can explain our platform's key features like the Live Dashboard, Signal Timeline, and Trade Journal. I can also help you understand complex Forex terms or analyze any currency pair. How can I assist you today?`,
             timestamp: new Date().toISOString(),
         }
     ])
@@ -117,18 +109,6 @@ export default function ChatPanel({ instrument }) {
                 <div ref={bottomRef} />
             </div>
 
-            {/* Suggested prompts */}
-            <div className="px-4 pb-2 flex gap-2 flex-wrap">
-                {SUGGESTED_PROMPTS.map(p => (
-                    <button
-                        key={p}
-                        onClick={() => handleSend(p)}
-                        className="text-xs px-3 py-1 rounded-full border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10 transition-colors"
-                    >
-                        {p}
-                    </button>
-                ))}
-            </div>
 
             {/* Input */}
             <div className="p-4 pt-2 border-t border-slate-200">

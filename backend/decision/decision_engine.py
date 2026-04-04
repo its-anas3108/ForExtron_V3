@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict
 
 from models.regime_classifier import RegimeClassifier
-from models.ensemble import EnsembleModel
+from models.forextron_v3.inference import ForextronPredictor
 from decision.risk_engine import RiskEngine
 from database.crud import insert_signal
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Lazy-loaded singletons
 _regime_clf: Optional[RegimeClassifier] = None
-_ensemble: Optional[EnsembleModel] = None
+_predictor: Optional[ForextronPredictor] = None
 _risk_engine: Optional[RiskEngine] = None
 
 
@@ -38,11 +38,11 @@ def _get_regime_clf():
     return _regime_clf
 
 
-def _get_ensemble():
-    global _ensemble
-    if _ensemble is None:
-        _ensemble = EnsembleModel()
-    return _ensemble
+def _get_predictor():
+    global _predictor
+    if _predictor is None:
+        _predictor = ForextronPredictor()
+    return _predictor
 
 
 def _get_risk_engine():
@@ -56,7 +56,7 @@ class DecisionEngine:
 
     def __init__(self):
         self.regime_clf = _get_regime_clf()
-        self.ensemble = _get_ensemble()
+        self.predictor = _get_predictor()
         self.risk_engine = _get_risk_engine()
 
     async def evaluate(self, instrument: str, df: pd.DataFrame) -> Optional[dict]:
@@ -71,8 +71,8 @@ class DecisionEngine:
         # ── Step 1: Regime Classification ─────────────────────────────────
         regime, regime_conf = self.regime_clf.predict(df)
 
-        # ── Step 2: Ensemble Probability ──────────────────────────────────
-        ensemble_prob, model_contributions = self.ensemble.predict(df)
+        # ── Step 2: TFT Model Prediction ──────────────────────────────────
+        ensemble_prob, model_contributions = self.predictor.predict(df, regime)
 
         # ── Step 3: Structure Analysis ────────────────────────────────────
         structure_bias = self._get_structure_bias(row)

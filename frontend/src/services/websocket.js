@@ -10,7 +10,9 @@ export function useWebSocket(instrument) {
 
     const connect = useCallback(() => {
         const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-        const host = window.location.host
+        const host = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `${window.location.hostname}:8000`
+            : window.location.host
         const url = `${proto}://${host}/ws/live/${instrument}`
         ws.current = new WebSocket(url)
 

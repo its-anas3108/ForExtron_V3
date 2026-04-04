@@ -43,7 +43,7 @@ export const getChatHistory = (sessionId = 'default') =>
 export const executeOrder = (payload) => api.post('/execute', payload).then(r => r.data)
 
 /** Execute a demo trade — always uses 0.01 micro lot (OANDA practice account) */
-export const executeTrade = (pair, direction, sl, tp) =>
+export const executeTrade = (pair, direction, sl, tp, numTrades = 1) =>
     api.post('/execute', {
         pair,
         direction,
@@ -51,6 +51,7 @@ export const executeTrade = (pair, direction, sl, tp) =>
         sl,
         tp,
         confirmed: true,
+        num_trades: numTrades,
     }).then(r => r.data)
 
 /** Check if execution gateway is enabled */

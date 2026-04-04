@@ -1,0 +1,18 @@
+[
+    {
+        "email": "test@test.com",
+        "hashed_password": "$2b$12$THf62/QZ7NPTGV09PFk5WOeJ6q.fzkuxTbeJ7c16DhWOddrb//4lq",
+        "name": "test",
+        "balance": 10000.0,
+        "created_at": "2026-04-03T15:45:09.519884+05:30",
+        "_id": "201985f5-7a03-4e47-9fd1-6a2778764fe6"
+    },
+    {
+        "email": "anas.mohammed3108@gmail.com",
+        "hashed_password": "$2b$12$cW2A3kvMj0k5TimRQQfW5e9u0fJTfxzOAuO9X6rxph081b8qdHUzK",
+        "name": "anas",
+        "balance": 10045.199999999999,
+        "created_at": "2026-04-03T15:46:20.980281+05:30",
+        "_id": "588449e2-8109-449d-859c-fff3b57dd63e"
+    }
+]
