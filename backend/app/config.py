@@ -64,12 +64,11 @@ class Settings(BaseSettings):
     DRIFT_DROP_THRESHOLD: float = 0.15  # 15% confidence drop triggers retrain
     HOLD_RATIO_THRESHOLD: float = 0.60  # >60% hold signals triggers retrain
 
-    # Ensemble weights  (must sum to 1.0)
-    W_LOGISTIC: float = 0.10
-    W_DNN: float = 0.20
-    W_GRU: float = 0.30
-    W_CNN: float = 0.25
-    W_TRANSFORMER: float = 0.15
+    # Forextron v3 Arch weights (must sum to 1.0)
+    W_PATCHTST: float = 0.35
+    W_TCN: float = 0.25
+    W_TFT: float = 0.30
+    W_GRN: float = 0.10
 
     # ── Risk Rules ──────────────────────────────────────────────────────────
     RISK_PER_TRADE_PCT: float = 0.01   # 1% of balance
@@ -79,11 +78,15 @@ class Settings(BaseSettings):
     RR_MINIMUM: float = 2.0            # Minimum risk-reward ratio
 
     # ── Chatbot / LLM ───────────────────────────────────────────────────────
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")  # "gemini" | "openai"
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    HUGGINGFACE_API_KEY: str = os.getenv("HUGGINGFACE_API_KEY", "")
+    HUGGINGFACE_MODEL: str = "mistralai/Mistral-7B-Instruct-v0.3"
+    LLM_PROVIDER: str = "openai"             # gemini / openai / groq / huggingface
     LLM_MODEL_GEMINI: str = "gemini-2.0-flash"
-    LLM_MODEL_OPENAI: str = "gpt-4o-mini"
+    LLM_MODEL_OPENAI: str = "nvidia/nemotron-3-super-120b-a12b:free"
+    LLM_MODEL_GROQ: str = "llama-3.1-70b-versatile"
 
     # ── MLflow ──────────────────────────────────────────────────────────────
     MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "mlruns")

@@ -92,16 +92,36 @@ class StreamHandler:
         self.running = False
         self._active_instrument: Optional[str] = None
         self.structure_engine = StructureEngine()
+        # Dedicated thread pool for streaming so it doesn't block the default executor
+        from concurrent.futures import ThreadPoolExecutor
+        self._stream_executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="oanda-stream")
 
     async def start(self, instrument: str):
         self.running = True
         self._active_instrument = instrument
         self.builders[instrument] = CandleBuilder(instrument)
 
+        # Seed history first so the UI isn't blank
+        await self._seed_history(instrument)
+
         if instrument in self.INR_INSTRUMENTS:
             await self._poll_inr(instrument)
         else:
             await self._stream_standard(instrument)
+
+    async def _seed_history(self, instrument: str):
+        """Fetch last 200 candles from OANDA on startup to populate DB."""
+        try:
+            logger.info(f"🌱 Seeding history for {instrument}...")
+            # Use singleton oanda client
+            history = await asyncio.get_event_loop().run_in_executor(
+                self._stream_executor, lambda: oanda.get_historical_candles(instrument, count=200)
+            )
+            for candle in history:
+                await insert_candle(candle)
+            logger.info(f"✅ Seeded {len(history)} candles for {instrument}")
+        except Exception as e:
+            logger.error(f"Failed to seed history for {instrument}: {e}")
 
     async def stop(self):
         self.running = False
@@ -120,7 +140,7 @@ class StreamHandler:
             except Exception as e:
                 logger.error(f"Stream error for {instrument}: {e}", exc_info=True)
 
-        await loop.run_in_executor(None, _blocking_stream)
+        await loop.run_in_executor(self._stream_executor, _blocking_stream)
 
     # ── INR polling fallback ──────────────────────────────────────────────────
     async def _poll_inr(self, instrument: str):
@@ -128,7 +148,7 @@ class StreamHandler:
         while self.running:
             try:
                 price = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda: oanda.get_latest_price(instrument)
+                    self._stream_executor, lambda: oanda.get_latest_price(instrument)
                 )
                 await self._handle_tick(instrument, price)
             except Exception as e:

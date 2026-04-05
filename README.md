@@ -14,7 +14,7 @@
 
 **Forextron** is a sophisticated, research-grade financial technology platform engineered for real-time Forex market analysis. Transitioning from legacy architectures to a unified, state-of-the-art Deep Learning framework (Forextron v3), it leverages multi-horizon temporal forecasting and an intricate multi-agent decision engine to generate highly robust trading intelligence.
 
-Unlike conventional platforms, Forextron integrates native drift detection, persistent user authentication, structural market analysis, and a specialized conversational AI natively connected to its trading context.
+Unlike conventional platforms, Forextron integrates native drift detection, persistent user authentication, structural market analysis, and a specialized multi-layered news intelligence system with LLM-powered rationale.
 
 ---
 
@@ -115,8 +115,17 @@ To protect capital, Forextron will **NEVER** issue a BUY or SELL signal unless *
 ## 🌐 Supported Instrumentation
 | Instrument | Category | Connectivity Flow |
 |-------------|----------|-------------------|
-| EUR_USD, GBP_USD, USD_JPY, AUD_USD, USD_CHF, USD_CAD, NZD_USD | Majors | WebSockets: Immediate Tick Streaming |
+| EUR_USD, GBP_USD, USD_JPY, AUD_USD, USD_CHF, USD_CAD, NZD_USD | Majors | WebSockets: Immediate Tick Streaming (via dedicated Executor) |
 | USD_INR, EUR_INR, GBP_INR | Regional | REST Polling: 10-second batched fetch |
+
+---
+
+## 🛠️ Performance & Robustness Features
+Recent upgrades have hardened the platform for production-like reliability:
+- **Multi-Layered News Intelligence**: A redundant fetch cycle (Finnhub → Forex Factory → Synthetic AI Fallback) ensures the news feed is never empty.
+- **Dedicated Concurrency**: A specialized `ThreadPoolExecutor` handles blocking OANDA I/O, preventing event-loop starvation and ensuring 100% API responsiveness.
+- **Seamless Charting**: The `LiveChart` features custom candlestick rendering with auto-seeding and synthetic "no-blank" data fallbacks.
+- **Data Sanitization**: Automatic handling of NaN/Inf values across the indicator pipeline ensures stable UI rendering.
 
 ---
 

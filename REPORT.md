@@ -52,9 +52,11 @@ A unique feature of Forextron is its rigorous gate system that operates entirely
 
 ## Recent Improvements and Upgrades
 Based on recent development logs, Forextron has been rapidly advancing:
-- **Auth Persistence**: Fixed session management ensuring users maintain active contexts continuously across reloads.
-- **Performance Visualization**: Introduced advanced visual tools (win/loss graphs, trade journals) directly overlaid on structural analysis fields.
-- **v3 Migration**: Completely scrubbed outdated ML libraries, refactored retraining pipelines, and standardized upon the modern PatchTST + TCN infrastructure.
+- **News Engine Robustness**: Implemented a triple-redundant news engine (Finnhub → Forex Factory → Synthetic AI). This ensures that even if local connectivity to news servers is degraded, the AI can still generate contextually relevant macro-sentiments. Fixed internal data structure bugs and duplicated LLM task logic.
+- **Frontend Charting Resilience**: Fixed the `LiveChart` to ensure candlesticks are always visible regardless of initial DB state. Developed a custom Recharts component for proper OHLC representation and integrated an auto-seeding mechanism for historical data retrieval.
+- **Backend Concurrency Optimization**: Migrated blocking OANDA I/O operations (streaming and polling) to a dedicated `ThreadPoolExecutor`. This architecture ensures the FastAPI event loop remains responsive to UI requests even during intensive data streaming.
+- **Auth & State Persistence**: Fully resolved session context issues, ensuring that user metrics, account states, and UI preferences are persistently stored in MongoDB.
+- **Data Integrity Layer**: Added a robust sanitization sweep throughout the backend indicator engine to gracefully handle and convert NaN/Inf values, preventing frontend rendering errors.
 
 ## Conclusion and Future Roadmap
-Forextron stands as a completely self-sufficient forecasting system designed for rigorous academic and practical financial execution. Future improvements aim toward expanded LLM context, deeper agent coordination, and fully unassisted live execution loops with reinforced guardrails.
+Forextron stands as a completely self-sufficient forecasting system designed for rigorous academic and practical financial execution. With core features like charting, news intelligence, and backend stability now fully optimized and functional, future improvements will focus on expanding the LLM-driven autonomous trading agents and enhancing the backtesting and trade-replay functionalities.

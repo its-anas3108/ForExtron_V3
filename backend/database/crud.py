@@ -25,8 +25,13 @@ _MEM_SIGNAL_LIMIT = 200
 async def init_db():
     global _client, _db
     try:
+        # Strict 2-second timeout for MongoDB selection to prevent application startup hang
         _client = AsyncIOMotorClient(settings.MONGO_URI, serverSelectionTimeoutMS=2000)
         _db = _client[settings.MONGO_DB_NAME]
+        
+        # Immediate connection test to bypass potential Motor hang later
+        await _client.admin.command('ping')
+        
         # Create indexes
         await _db.candles.create_index([("pair", 1), ("timestamp", -1)])
         await _db.signals.create_index([("pair", 1), ("timestamp", -1)])
@@ -34,7 +39,7 @@ async def init_db():
         await _db.agent_logs.create_index([("timestamp", -1)])
         logger.info(f"✅ MongoDB connected: {settings.MONGO_DB_NAME}")
     except Exception as e:
-        logger.error(f"❌ MongoDB connection failed. Running in memory-only mode. Error: {e}")
+        logger.warning(f"⚠️ MongoDB connection failed ({e}). Falling back to Local Persistence (data/users.json).")
         _client = None
         _db = None
 
@@ -56,11 +61,13 @@ def _load_mem_users():
 
 def _save_mem_users():
     try:
+        # Create data directory if it doesn't exist
         os.makedirs(os.path.dirname(_USERS_FILE), exist_ok=True)
         with open(_USERS_FILE, "w") as f:
             json.dump(_mem_users, f, indent=4)
+        logger.info(f"✅ User data persisted locally to {_USERS_FILE}")
     except Exception as e:
-        logger.error(f"Failed to save users to json fallback: {e}")
+        logger.error(f"❌ Failed to save users to json fallback: {e}")
 
 _mem_users = _load_mem_users()
 

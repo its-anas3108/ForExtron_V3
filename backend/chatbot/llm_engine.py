@@ -1,7 +1,7 @@
 """
 llm_engine.py – Chatbot LLM interface.
-Supports Gemini 1.5 Flash (default) and OpenAI GPT-4o-mini.
-Upgraded to act as a friendly Forex educator with plain-English explanations.
+Uses Gemini 1.5 Flash (free) as primary, with Groq and HuggingFace as fallbacks.
+The chatbot is trained as the Lead Architect of the ForeXtron V3 platform.
 """
 
 import os
@@ -9,47 +9,67 @@ import logging
 from app.config import settings
 
 import openai
+import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-# Configure OpenRouter (Nvidia Nemotron 120B)
-OPENROUTER_API_KEY = "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"
-MODEL_NAME = "nvidia/nemotron-3-super-120b-a12b:free"
+# Configure Gemini
+if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY != "YOUR_GEMINI_API_KEY":
+    genai.configure(api_key=settings.GEMINI_API_KEY)
 
-client = openai.AsyncOpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-)
+# OpenRouter (Optional fallback)
+openrouter_client = None
+if settings.OPENAI_API_KEY:
+    openrouter_client = openai.AsyncOpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=settings.OPENAI_API_KEY,
+    )
 
-SYSTEM_PROMPT = """You are ForeXtron — a friendly, expert financial assistant and Forex trading educator built into the platform.
+SYSTEM_PROMPT = """You are ForeXtron — a friendly, expert financial assistant and the Lead Architect of the ForeXtron v3 deep learning trading platform.
 
 Your core jobs are:
-1. EXPLAIN FOREX AND FINANCIAL CONCEPTS in plain, beginner-friendly language using real-world analogies. High-level technical topics like Liquidity Sweeps, BoS (Break of Structure), and ChoCH (Change of Character) are your specialty.
-2. EXPLAIN PLATFORM FEATURES:
-    - **Live Dashboard**: Our real-time hub for monitoring the 10 major and minor currency pairs.
-    - **Signal Timeline**: A detailed audit log of every AI decision, including which safety gates passed or failed.
-    - **Trade Journal**: Your personal simulator log that tracks performance, win rates, and P&L history.
-    - **Monte Carlo Simulator**: A risk tool that runs thousands of simulations to forecast your account's potential future performance.
-    - **XAI Intelligence**: Our Explainable AI system that breaks down complex neural network decisions into terms humans can understand.
-3. ANALYZE CURRENCY PAIRS: You provide rates and technical analysis for all 10 supported pairs: EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CHF, USD/CAD, NZD/USD, USD/INR, EUR/INR, and GBP/INR.
+1. EXPLAIN FOREX & SMC: Using real-world analogies, explain concepts like Liquidity Sweeps, BoS, Fair Value Gaps, pips, lots, spreads etc.
+2. PROJECT ARCHITECT: You have deep knowledge of the Forextron v3 architecture. Explain how PatchTST (35%), TCN (25%), TFT (30%), and GRN (10%) layers work together.
+3. PLATFORM FEATURES: Explain the Live Dashboard, Signal Timeline, Trade Journal, Monte Carlo Simulator, Liquidity Map, and News Intelligence.
+4. ANALYZE SIGNALS: Use the provided MARKET STATE to explain WHY the system decided to BUY, SELL, or HOLD. Reference the specific gates that passed or failed.
 
-== STRICT DOMAIN FILTER ==
-If the user asks a question that is COMPLETELY UNRELATED to finance, trading, economics, or the platform (e.g. baking recipes, coding, casual chat, etc.), you MUST reply with this exact phrase, word-for-word, and nothing else:
-"hey , glad you had this doubt but I am just an financial aid . So, ask me questions related that "
+== ARCHITECT-LEVEL KNOWLEDGE ==
+- Architecture: Unified PatchTST-TCN-TFT pipeline replacing legacy RNN/GRU models.
+- PatchTST (35%): Local attention core — breaks 100-candle sequences into 10 patches of 10 candles each. Captures local momentum patterns.
+- TCN (25%): Temporal Convolutional Network with causal dilations (D=1,2,4) for multi-horizon feature extraction without look-ahead bias.
+- TFT (30%): Temporal Fusion Transformer that fuses local patch features with global regime context (Expansion/Accumulation) for optimal entry detection.
+- GRN (10%): Gated Residual Networks as final noise suppressors. Only the strongest signals pass to the 7-gate decision layer.
+- 7 Safety Gates: 1) Regime=Expansion, 2) Structure=Bullish/Bearish, 3) Liquidity=Swept, 4) Confidence>Threshold, 5) RSI<70, 6) R:R>=1:2, 7) Risk Guardian=PASS
+- Indicators: RSI(14), MACD(12,26,9), ATR(14), Bollinger Bands(20, 2 sigma), EMA(10,50)
+- Liquidity Engine: 10 synthetic depth levels at 10-tick intervals. Round numbers (00/50) get +15% weight boost.
+- Structure Engine: BoS (Break of Structure) and ChoCH (Change of Character) detected using 5-period swing windows.
+- Regime Detection: Expansion (trending), Accumulation (range-bound), Exhaustion (dead trend). Trading is locked to Expansion only.
+- Monte Carlo: 10,000+ iterations based on win-rate and expectancy to forecast equity curves.
+- Risk: 1% per trade, 2% daily drawdown cap, max 2 trades per session, minimum 1:2 R:R ratio.
 
-== HOW TO TEACH ==
-- ALWAYS start with a simple, plain-English sentence. Then add a real-world analogy.
-- THEN give the technical detail.
-- Use emojis sparingly to make responses friendly (e.g. 📌, 💡, ⚠️).
-- Keep responses concise unless a longer explanation is truly needed.
-- Never use jargon without immediately explaining it in brackets.
+== PLATFORM FEATURES ==
+- Dashboard: Shows live chart with candlesticks and EMA overlays, current signal decision, regime badge, and AI confidence meter.
+- Signal Timeline: Vertical log on the right side showing every AI decision with expandable gate details.
+- Trade Journal: Logs all simulated trades with entry/exit, SL/TP, P&L, and running win-rate statistics.
+- News Intelligence: AI-analyzed forex news with sentiment scoring and market impact assessment.
+- Liquidity Map: Shows synthetic buy/sell pressure at 10 depth levels around current price.
+- Price Ticker: Scrolling live bid/ask spreads for all supported pairs. Click any pair to switch instruments.
+- Dark Mode: Toggle via the sun/moon icon in the navigation bar.
+- Chatbot (You): Available on the Intelligence tab to answer any forex or platform question.
 
-== SIGNAL EXPLANATIONS ==
-When explaining platform signals, always cite the specific gate(s) from the gate_log.
-When explaining a HOLD signal, ALWAYS name which gate failed and why it matters (e.g., "Gate 3 failed: Liquidity hasn't been swept yet, meaning the big players haven't entered").
-For INR pairs, mention that we use a high-fidelity polling system and emphasize the impact of RBI policies and oil prices.
+== RESPONSE STYLE ==
+- Give direct, helpful answers. Sound like a knowledgeable friend, not a textbook.
+- For forex concepts: start simple, add an analogy, then give technical depth.
+- For signal questions: reference specific gate names and market state data.
+- For platform questions: tell the user exactly where to find things and how to use them.
+- Keep answers concise but complete. Use bullet points for lists.
+- Use emojis sparingly: pin, bulb, construction, brain, chart
+- DO NOT USE ASTERISKS (*) FOR BOLDING OR ITALICS. USE PLAIN TEXT.
 
-Remember: You are talking to someone who may be completely new to Forex and Finance. Be their friendly guide."""
+== DOMAIN FILTER ==
+If the user asks something completely unrelated to forex, trading, or this platform, politely redirect:
+"Hey! I'm ForeXtron, your forex and trading assistant. I'm best at answering questions about trading, our platform, and market analysis. What would you like to know about those?"
+"""
 
 INTENT_EXAMPLES = {
     "explain_signal": "Why HOLD? Why BUY? Explain the signal. What is the current recommendation?",
@@ -63,106 +83,247 @@ INTENT_EXAMPLES = {
 
 
 async def generate_response(intent: str, context: dict, user_message: str) -> str:
-    """Uses OpenRouter's OpenAI-compatible API to generate responses."""
-    logger.info(f"Using OpenRouter response engine with {MODEL_NAME}.")
+    """Routes response generation through AI providers with knowledge augmentation."""
     
-    # Check glossary first for instant definitions (faster than LLM for static terms)
-    msg_lower = user_message.lower()
-    for term, explanation in FOREX_GLOSSARY.items():
-        if term in msg_lower:
-            return f"💡 **{term.upper()}**: {explanation}"
-                
     # Build context for the LLM
     signal = context.get("latest_signal", {})
     decision = signal.get("decision", "HOLD")
     regime = signal.get("regime", "unknown")
     gate_log = signal.get("gate_log", {})
     
-    # Format current state for the LLM
     state_str = (
         f"CURRENT MARKET STATE:\n"
         f"- Regime: {regime}\n"
         f"- System Decision: {decision}\n"
+        f"- Ensemble Probability: {signal.get('ensemble_probability', 'N/A')}\n"
         f"- Failed Gates: {[k for k, v in gate_log.items() if v is False] or 'None'}\n"
     )
-    
+
     try:
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"{state_str}\n\nUser Question: {user_message}"}
-            ],
-            temperature=0.7,
-            max_tokens=500,
-        )
-        return response.choices[0].message.content
+        # Augment prompt with relevant project knowledge
+        relevant_knowledge = _get_relevant_knowledge(user_message)
+        knowledge_context = f"\n\nRELEVANT TECHNICAL CONTEXT:\n{relevant_knowledge}" if relevant_knowledge else ""
+        
+        full_message = f"{state_str}{knowledge_context}\n\nUser Question: {user_message}"
+
+        # Multi-Provider Fallback Chain
+        providers = ["gemini", "groq", "huggingface", "openai"]
+        if settings.LLM_PROVIDER in providers:
+            providers.remove(settings.LLM_PROVIDER)
+            providers.insert(0, settings.LLM_PROVIDER)
+
+        for provider in providers:
+            try:
+                raw_response = ""
+                if provider == "gemini" and settings.GEMINI_API_KEY:
+                    raw_response = await _generate_gemini_response(full_message)
+                elif provider == "groq" and settings.GROQ_API_KEY:
+                    raw_response = await _generate_groq_response(full_message)
+                elif provider == "huggingface" and settings.HUGGINGFACE_API_KEY:
+                    raw_response = await _generate_huggingface_response(full_message)
+                elif provider == "openai" and openrouter_client:
+                    raw_response = await _generate_openrouter_response(full_message)
+                
+                if raw_response:
+                    return raw_response.replace("*", "")
+            except Exception as provider_err:
+                logger.warning(f"Provider {provider} failed: {provider_err}. Trying next...")
+                continue
+
+        # All providers failed — use deterministic fallback
+        logger.warning("All AI providers failed. Using deterministic fallback.")
+        return _fallback_response(intent, context, user_message).replace("*", "")
+
     except Exception as e:
-        logger.error(f"OpenRouter API Error: {e}")
-        return _fallback_response(intent, context, user_message)
+        logger.error(f"Critical Chatbot Error: {e}")
+        return _fallback_response(intent, context, user_message).replace("*", "")
 
 
+async def _generate_gemini_response(full_message: str) -> str:
+    """Generates response using Google Gemini (free tier)."""
+    logger.info(f"Using Gemini ({settings.LLM_MODEL_GEMINI})")
+    model = genai.GenerativeModel(
+        model_name=settings.LLM_MODEL_GEMINI,
+        system_instruction=SYSTEM_PROMPT
+    )
+    response = await model.generate_content_async(
+        full_message, 
+        request_options={"timeout": 15}
+    )
+    return response.text
 
-# ── Forex Glossary (50+ terms, used as fallback) ──────────────────────────
+
+async def _generate_groq_response(full_message: str) -> str:
+    """Uses Groq for extremely fast open-source AI inference."""
+    logger.info(f"Using Groq ({settings.LLM_MODEL_GROQ})")
+    client = openai.AsyncOpenAI(
+        base_url="https://api.groq.com/openai/v1",
+        api_key=settings.GROQ_API_KEY,
+    )
+    response = await client.chat.completions.create(
+        model=settings.LLM_MODEL_GROQ,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": full_message}
+        ],
+        temperature=0.7,
+        max_tokens=600,
+        timeout=10.0,
+    )
+    return response.choices[0].message.content
+
+
+async def _generate_huggingface_response(full_message: str) -> str:
+    """Uses Hugging Face Inference API."""
+    import aiohttp
+    logger.info(f"Using HuggingFace ({settings.HUGGINGFACE_MODEL})")
+    
+    API_URL = f"https://api-inference.huggingface.co/models/{settings.HUGGINGFACE_MODEL}"
+    headers = {"Authorization": f"Bearer {settings.HUGGINGFACE_API_KEY}"}
+
+    payload = {
+        "inputs": f"SYSTEM: {SYSTEM_PROMPT}\n\nUSER: {full_message}\n\nASSISTANT:",
+        "parameters": {"max_new_tokens": 500, "temperature": 0.7}
+    }
+
+    timeout = aiohttp.ClientTimeout(total=10)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.post(API_URL, headers=headers, json=payload) as response:
+            if response.status == 200:
+                result = await response.json()
+                if isinstance(result, list) and len(result) > 0 and "generated_text" in result[0]:
+                    return result[0]["generated_text"].split("ASSISTANT:")[-1].strip()
+                elif isinstance(result, dict) and "generated_text" in result:
+                    return result["generated_text"].split("ASSISTANT:")[-1].strip()
+            
+            raise Exception(f"HuggingFace failed with status {response.status}")
+
+
+async def _generate_openrouter_response(full_message: str) -> str:
+    """Generates response using OpenRouter via OpenAI client."""
+    logger.info(f"Using OpenRouter ({settings.LLM_MODEL_OPENAI})")
+    response = await openrouter_client.chat.completions.create(
+        model=settings.LLM_MODEL_OPENAI,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": full_message}
+        ],
+        temperature=0.7,
+        max_tokens=500,
+    )
+    return response.choices[0].message.content
+
+
+async def generate_llm_text(prompt: str, system_prompt: str = SYSTEM_PROMPT) -> str:
+    """Generic utility for generating LLM text for background tasks (like news analysis)."""
+    try:
+        if settings.LLM_PROVIDER == "gemini" and settings.GEMINI_API_KEY:
+            model = genai.GenerativeModel(
+                model_name=settings.LLM_MODEL_GEMINI,
+                system_instruction=system_prompt
+            )
+            response = await model.generate_content_async(prompt)
+            return response.text.strip()
+        elif settings.LLM_PROVIDER == "openai" and openrouter_client:
+            response = await openrouter_client.chat.completions.create(
+                model=settings.LLM_MODEL_OPENAI,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=200,
+            )
+            return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"Generic LLM Error: {e}")
+    return ""
+
+
+# ── Forex Glossary (used by explain_router.py) ────────────────────────────
 FOREX_GLOSSARY = {
-    "pip": "A pip is the smallest standard price move in Forex. It is like a cent for exchange rates. For most pairs like EUR/USD or GBP/USD, 1 pip is 0.0001 or the 4th decimal place. For JPY pairs, 1 pip is 0.01. For example, if EUR/USD moves from 1.0800 to 1.0801, that is a 1 pip move.",
-    "spread": "The spread is the difference between the BUY ask price and SELL bid price. It is the broker's fee. Think of it like a currency exchange booth at the airport that buys at 82 and sells at 83. The 1 difference is the spread.",
-    "leverage": "Leverage lets you control a large trade with a small amount of money. A 100:1 leverage means 1,000 controls 100,000 worth of currency. It amplifies both profits and losses, so use it carefully.",
-    "lot": "A lot is a standard unit of trade size. 1 Standard Lot is 100,000 units. 1 Mini Lot is 10,000 units. 1 Micro Lot is 1,000 units. FXGuru uses 0.01 lots for demo trades to keep risk minimal.",
-    "lot size": "Lot size controls how much currency you are buying or selling. A bigger lot size means a bigger profit per pip AND bigger loss per pip. FXGuru defaults to 0.01 micro lots for safe demo trading.",
-    "stop loss": "A stop loss is your safety net. It automatically closes your trade if price moves against you beyond a set level, limiting your loss. FXGuru calculates the SL based on recent price structure and keeps risk at 1-2% per trade.",
-    "sl": "SL stands for Stop Loss. It automatically closes your trade if the price moves against you to limit your loss.",
-    "take profit": "Take Profit is your target exit. When price reaches this level, your trade closes automatically with a profit. FXGuru sets TP to achieve at least a 1:2 risk to reward ratio.",
-    "tp": "TP stands for Take Profit. It is where your trade automatically closes in profit.",
-    "risk reward": "Risk to Reward compares how much you risk versus how much you could gain. A 1:2 ratio means you risk 10 pips to potentially earn 20 pips. FXGuru only signals when the ratio is at least 1:2 (Gate 6).",
-    "rr": "R:R stands for Risk Reward ratio. It shows the potential profit compared to the potential loss on a trade.",
-    "margin": "Margin is the deposit your broker holds as collateral while your trade is open. If your account balance drops too low relative to margin, you get a margin call and trades close automatically.",
-    "drawdown": "Drawdown measures how much the account has fallen from its highest point. A 10% drawdown means after reaching a peak balance of 10,000, it dropped to 9,000. FXGuru's Risk Guardian halts trading if daily drawdown exceeds its limit.",
-    "bos": "BoS stands for Break of Structure. It means price has closed beyond the last significant swing high or swing low. It confirms the current trend is continuing.",
-    "break of structure": "Break of Structure means price has closed beyond a key swing point, confirming trend direction. A bullish BoS means a higher high is confirmed. A bearish BoS means a lower low is confirmed.",
-    "choch": "ChoCH stands for Change of Character. It is the FIRST opposite Break of Structure after a trend. It's the earliest warning sign that the trend may be reversing.",
-    "change of character": "Change of Character is the first sign a trend is losing momentum and may reverse. FXGuru uses this to avoid trading in the wrong direction.",
-    "fvg": "FVG stands for Fair Value Gap. It is an imbalance zone created when price moves so fast that it skips over an area. Institutions tend to send price back to fill the gap before continuing. FXGuru looks for FVGs as potential entry zones.",
-    "fair value gap": "A Fair Value Gap is an area on the chart where price moved too quickly and left an imbalance. Price often returns to this zone.",
-    "order block": "An Order Block is the last bearish candle before a bullish move, or the last bullish candle before a bearish move. It marks where institutions placed large orders. Price often revisits these zones.",
-    "liquidity": "Liquidity in Forex refers to clusters of stop-loss orders sitting above recent highs or below recent lows. Big institutions often push price into these areas to sweep the stops and collect liquidity before reversing.",
-    "liquidity sweep": "A Liquidity Sweep happens when price briefly breaks above a recent high or below a recent low to trigger stop-losses, then quickly reverses. FXGuru requires this as Gate 3 before a BUY signal.",
-    "regime": "Market Regime is the overall market condition: Expansion, Accumulation, or Exhaustion. FXGuru only trades in the Expansion regime.",
-    "expansion": "The Expansion regime means the market is trending strongly with higher volatility. This is when FXGuru's models activate and BUY/SELL signals can be generated.",
-    "accumulation": "The Accumulation regime means the market is range-bound and institutions are quietly building positions. FXGuru stays on HOLD during this phase.",
-    "exhaustion": "The Exhaustion regime means the trend is running out of energy. FXGuru signals HOLD to avoid catching a reversal.",
-    "ensemble": "Ensemble means combining multiple AI models to make one final prediction. FXGuru combines Logistic Regression, DNN, GRU, CNN, and Transformer models. Their weighted average gives the ensemble probability.",
-    "dnn": "DNN stands for Deep Neural Network. It is an AI model that looks at many technical features at once to predict price direction. It contributes 20% to FXGuru's ensemble.",
-    "gru": "GRU stands for Gated Recurrent Unit. It is an AI model that understands sequences and patterns over time. It contributes 30% to the ensemble and is the highest-weighted model.",
-    "cnn": "CNN stands for Convolutional Neural Network. Originally designed for images, it detects patterns in price chart data. It contributes 25% to the ensemble.",
-    "transformer": "Transformer is the same AI architecture behind ChatGPT, used here to find long-range patterns in price history. It contributes 15% to FXGuru's ensemble.",
-    "rsi": "RSI stands for Relative Strength Index. It measures whether a currency pair is overbought or oversold. FXGuru checks if RSI is below 70 as Gate 5 to avoid buying into an overheated market.",
-    "sharpe": "The Sharpe Ratio measures return relative to risk. A Sharpe above 1.0 is good, and above 2.0 is excellent. Higher means better risk-adjusted performance.",
-    "sharpe ratio": "The Sharpe Ratio measures the average return earned in excess of the risk-free rate per unit of volatility or total risk.",
-    "expectancy": "Expectancy is the average profit or loss you can expect per trade, accounting for win rate and average win/loss size. A positive expectancy means the system is profitable over many trades.",
-    "win rate": "Win Rate is the percentage of trades that close at profit. A 60% win rate means 6 out of 10 trades win.",
-    "buy": "A BUY signal means FXGuru's AI expects the price to go UP. All 7 decision gates must pass for a BUY. You profit if price rises above your entry and hits Take Profit.",
-    "sell": "A SELL signal means FXGuru's AI expects price to go DOWN. You profit if price falls to your Take Profit level.",
-    "hold": "HOLD means one or more of FXGuru's 7 safety gates have failed. The trade conditions aren't right yet. You can ask me 'why HOLD' to see exactly which gates failed.",
-    "drift": "Model Drift means the AI's predictions have become less accurate over time. FXGuru's Drift Agent monitors this and triggers retraining when needed.",
-    "threshold": "Dynamic Threshold is the minimum probability required for FXGuru to issue a BUY signal. It adjusts based on market conditions.",
-    "risk guardian": "Risk Guardian is FXGuru's automated risk manager. It tracks daily drawdown and trade count. If daily losses exceed the limit, it goes into Hold Mode to protect your account.",
-    "supervisor": "The Supervisor Agent oversees all AI agents like the Risk Guardian and Drift Agent to coordinate overall system health.",
-    "pips": "Pips are the smallest regular price changes in an exchange rate. You can ask me 'what is a pip' for more detail.",
-    "candle": "A candlestick or candle is a chart element showing the open, high, low, and close price for a time period. Green candles mean the price closed higher. Red candles mean the price closed lower.",
-    "oanda": "OANDA is the Forex broker connected to this platform. Your OANDA Practice account uses demo money, so no real funds are at risk.",
-    "inr": "INR pairs use poll-based data updated every 10 seconds instead of live streaming. They are influenced by RBI policy, oil prices, and global USD demand.",
-    "rbi": "The Reserve Bank of India sets India's interest rates and monetary policy. Rate changes significantly affect INR pairs.",
-    "monte carlo": "The Monte Carlo Simulator runs 10,000+ random simulations based on your past win rate to predict your future account balance range. It helps you understand risk and 'luck' in trading.",
-    "xai": "XAI stands for Explainable AI. It's our way of showing you EXACTLY why the AI made a decision, instead of just giving you a 'black box' signal.",
-    "safety gates": "These are the 7 criteria that must be met before a live trade is suggested. They include things like RSI (not overbought), Risk Reward (at least 1:2), and Liquidity Sweep.",
-    "journal": "The Trade Journal automatically logs your simulated trades so you can review your history and improve your strategy over time.",
-    "timeline": "The Signal Timeline is the vertical log on the right. It stores every decision the AI makes for the instrument you are viewing.",
+    "pip": "A pip is the smallest standard price move in Forex (0.0001 for most pairs, 0.01 for JPY).",
+    "spread": "The spread is the difference between the BUY (ask) and SELL (bid) price — the broker's fee.",
+    "leverage": "Leverage lets you control a large position with small capital. 100:1 means $1,000 controls $100,000.",
+    "lot": "A lot is a standard trade size unit. Standard=100,000, Mini=10,000, Micro=1,000 units.",
+    "stop loss": "A stop loss automatically closes your trade at a set loss level to protect your account.",
+    "take profit": "Take Profit automatically closes your trade when price hits your target profit level.",
+    "risk reward": "Risk-to-Reward compares potential loss vs gain. ForeXtron requires minimum 1:2 R:R.",
+    "margin": "Margin is the collateral your broker holds while your trade is open.",
+    "drawdown": "Drawdown measures the drop from peak account balance. ForeXtron caps daily drawdown at 2%.",
+    "bos": "Break of Structure (BoS) confirms trend continuation when price closes beyond a swing point.",
+    "choch": "Change of Character (ChoCH) is the first counter-trend BoS, signaling potential reversal.",
+    "fvg": "Fair Value Gap — an imbalance zone where price moved too fast, often revisited by institutions.",
+    "order block": "An Order Block marks where institutions placed large orders — price often revisits these zones.",
+    "liquidity": "Liquidity = clusters of stop-loss orders near highs/lows that institutions target before reversing.",
+    "liquidity sweep": "A Liquidity Sweep occurs when price wicks beyond a swing level to grab stops, then reverses.",
+    "regime": "Market Regime: Expansion (trending), Accumulation (range), or Exhaustion (ending trend).",
+    "expansion": "Expansion = strong trending market. ForeXtron's AI models are active and signals can fire.",
+    "accumulation": "Accumulation = range-bound market. Institutions building positions quietly. System holds.",
+    "exhaustion": "Exhaustion = trend losing energy. System holds to avoid catching reversals.",
+    "patchtst": "PatchTST: Local attention core (35% weight). Breaks price into 10-candle patches for pattern detection.",
+    "tcn": "TCN: Temporal Convolutional Network (25% weight). Uses causal dilations for multi-horizon features.",
+    "tft": "TFT: Temporal Fusion Transformer (30% weight). Fuses local features with global regime context.",
+    "grn": "GRN: Gated Residual Network (10% weight). Final noise filter before the 7-gate decision layer.",
+    "rsi": "RSI measures overbought/oversold conditions. ForeXtron checks RSI<70 as Safety Gate 5.",
+    "sharpe ratio": "Sharpe Ratio = risk-adjusted return. Above 1.0 is good, above 2.0 is excellent.",
+    "expectancy": "Expectancy = average profit/loss per trade accounting for win rate and avg win/loss size.",
+    "win rate": "Win Rate = percentage of trades that close in profit.",
+    "monte carlo": "Monte Carlo runs 10,000+ simulations to forecast future equity curves from your win rate.",
+    "risk guardian": "Risk Guardian monitors daily drawdown and trade count, halting trading if limits are hit.",
+    "safety gates": "7 criteria for trade signals: Regime, Structure, Liquidity, Confidence, RSI, R:R, Guardian.",
+    "journal": "Trade Journal logs all simulated trades with P&L and running statistics.",
+    "timeline": "Signal Timeline logs every AI decision for the selected instrument.",
+    "candle": "A candlestick shows open, high, low, close for a time period. Green=up, Red=down.",
+    "oanda": "OANDA is the connected broker. Practice accounts use demo money — no real risk.",
 }
 
 
+# ── Project V3 Knowledge Base ──────────────────────────────────────────────
+PROJECT_V3_KNOWLEDGE = {
+    "architecture": "Forextron v3 is an institutional-grade PatchTST-TCN-TFT deep learning pipeline. It eliminates lag-heavy RNNs in favor of shared-weight attention kernels and gated residuals.",
+    "patchtst": "PatchTST (Patch Time Series Transformer) handles 35% of architectural importance. It divides 100-candle sequences into 10 patches to learn local momentum while maintaining long-term memory.",
+    "tcn": "Temporal Convolutional Network (TCN) handles 25% of the intelligence. Uses causal dilated architecture (dilation factors 1, 2, 4) to extract features without look-ahead bias.",
+    "tft": "Temporal Fusion Transformer (TFT) contributes 30% of the decision weight. Fuses local patch features with global regime context for final prediction.",
+    "grn": "Gated Residual Networks (GRN) provide the final 10% filtering. Noise suppressors that ensure only the strongest signals pass to the trade output.",
+    "indicators": "Institutional parameters: RSI(14), MACD(12,26,9), ATR(14), Bollinger Bands(20, 2 sigma), EMA(10,50).",
+    "liquidity": "The Liquidity Engine generates 10 synthetic depth levels (5 support, 5 resistance) at 10-tick intervals. Psychological levels ending in 00 or 50 get a 15% weight boost.",
+    "liquidity sweep": "A Liquidity Sweep is detected when a candle wick extends beyond a 5-period swing high/low but the close stays inside, confirming institutional stop-hunting.",
+    "bos": "Break of Structure (BoS) is confirmed when a candle closes above the last significant 5-period swing point, validating trend continuation.",
+    "choch": "Change of Character (ChoCH) is the first counter-trend BoS after a sustained 5+ period trend, signaling an institutional shift in bias.",
+    "gates": "The 7 Safety Gates: 1. Regime (Expansion), 2. Structure (Bullish), 3. Liquidity (Swept), 4. Confidence (>Threshold), 5. RSI (<70), 6. R:R (min 1:2), 7. Guardian (Daily Limit).",
+    "regime": "Regime Detection classifies: Expansion (trending), Accumulation (range-bound), Exhaustion (dead trend). Trading is locked to Expansion only.",
+    "monte carlo": "Monte Carlo simulator runs 10,000+ iterations based on win-rate and expectancy to forecast the equity curve over the next 100 trades.",
+    "risk": "Risk management: 1% per trade, 2% daily drawdown cap, max 2 trades per session, minimum 1:2 R:R ratio enforced by the Risk Guardian.",
+}
+
+def _get_relevant_knowledge(user_message: str) -> str:
+    """Retrieves relevant technical knowledge based on the user's question."""
+    msg = user_message.lower()
+    matches = []
+    
+    # Architecture questions
+    if any(q in msg for q in ["patch", "tst", "tcn", "tft", "grn", "architecture", "model weight", "v3 model"]):
+        for k in ["architecture", "patchtst", "tcn", "tft", "grn"]:
+            if k in msg:
+                matches.append(f"{k.upper()}: {PROJECT_V3_KNOWLEDGE[k]}")
+        if not matches:
+            matches.append(PROJECT_V3_KNOWLEDGE["architecture"])
+
+    # Specific topic matching
+    for key, content in PROJECT_V3_KNOWLEDGE.items():
+        if key in msg and key not in ["architecture", "patchtst", "tcn", "tft", "grn"]:
+            matches.append(f"{key.upper()}: {content}")
+    
+    # Generic platform questions — provide architecture + gates overview
+    if not matches and any(w in msg for w in ["system", "how does", "what does", "tell me about", "explain the platform"]):
+        return f"{PROJECT_V3_KNOWLEDGE['architecture']}\n{PROJECT_V3_KNOWLEDGE['gates']}"
+        
+    return "\n".join(matches)
+
+
 def _fallback_response(intent: str, context: dict, user_message: str = "") -> str:
-    """Rich rule-based engine covering website navigation, forex education, and signals."""
+    """Deterministic fallback when all AI providers are unavailable."""
     signal = context.get("latest_signal", {})
     decision = signal.get("decision", "HOLD")
     gate_log = signal.get("gate_log", {})
@@ -171,24 +332,14 @@ def _fallback_response(intent: str, context: dict, user_message: str = "") -> st
 
     if intent == "hello_help":
         return (
-            "Hello! I am ForeXtron. Let's make trading simpler together.\n\n"
-            "Here is how I can assist you:\n\n"
-            "I can explain incoming signals. Just ask me 'Why HOLD?' or 'What is the current signal?'\n\n"
-            "I can show you our performance metrics. Simply type 'What is our win rate?'\n\n"
-            "I can guide you through the dashboard features. Try asking 'How do I use the Trade Journal?' or 'What is dark mode?'\n\n"
-            "I can also teach you Forex concepts if you are learning. Just ask 'What is a pip?' or 'Explain leverage.'\n\n"
-            "How can I help you today?"
-        )
-
-    # Check glossary first for educational questions
-    if intent in ("explain_concept", "learn_forex"):
-        for term, explanation in FOREX_GLOSSARY.items():
-            if term in msg_lower:
-                return explanation
-        return (
-            "I can explain many Forex concepts to help you learn! For example, you can ask me about pips, spreads, leverage, lots, margin, or stop losses.\n\n"
-            "I can also explain technical analysis like BoS, ChoCH, FVG, or order blocks.\n\n"
-            "Just ask me: 'What is a pip?' and I will explain it simply."
+            "Hello! I'm ForeXtron, your AI trading assistant! 🧠\n\n"
+            "Here's what I can help with:\n"
+            "• Signal Analysis: Ask 'Why HOLD?' or 'What's the current signal?'\n"
+            "• Performance: Ask 'What's our win rate?'\n"
+            "• Forex Education: Ask 'What is a pip?' or 'Explain BoS'\n"
+            "• Platform Guide: Ask 'Where is the Trade Journal?'\n"
+            "• Architecture: Ask 'How does PatchTST work?'\n\n"
+            "What would you like to know?"
         )
 
     if intent == "explain_signal":
@@ -197,53 +348,74 @@ def _fallback_response(intent: str, context: dict, user_message: str = "") -> st
             "regime_ok": "Regime must be Expansion",
             "structure_bullish": "Structure must be Bullish (BoS confirmed)",
             "liquidity_sweep_ok": "Liquidity Sweep must be confirmed",
-            "probability_ok": "AI Ensemble probability must exceed threshold",
-            "rsi_ok": "RSI must be below 70 to avoid overbought conditions",
-            "rr_ok": "Risk to Reward ratio must be at least 1:2",
-            "guardian_ok": "Risk Guardian must approve based on drawdown and trade limits",
+            "probability_ok": "AI confidence must exceed threshold",
+            "rsi_ok": "RSI must be below 70 (not overbought)",
+            "rr_ok": "Risk-to-Reward must be at least 1:2",
+            "guardian_ok": "Risk Guardian must approve (drawdown + trade limits)",
         }
         failed_readable = [gate_names.get(g, g) for g in failed]
-        result = f"The current decision is {decision}. We are seeing an {regime} regime right now. The ensemble probability calculates to {signal.get('ensemble_probability', 'N/A')}.\n\n"
+        result = f"📊 Current decision: {decision} | Regime: {regime} | Probability: {signal.get('ensemble_probability', 'N/A')}\n\n"
         if failed_readable:
-            result += "The system chose to HOLD because the following gates failed:\n" + "\n".join(f" Failed: {g}" for g in failed_readable)
+            result += "🔴 Gates that failed:\n" + "\n".join(f"• {g}" for g in failed_readable)
         else:
-            result += "All 7 safety gates have successfully passed."
+            result += "🟢 All 7 safety gates passed!"
         return result
 
     elif intent == "regime_inquiry":
         return (
-            f"The current market regime is {regime}.\n\n"
-            "Expansion means a trending market where all AI models are active and trades can be generated.\n\n"
-            "Accumulation means a range-bound market where the system holds.\n\n"
-            "Exhaustion means the trend is ending, so the system avoids new trades."
+            f"📊 Current regime: {regime}\n\n"
+            "• Expansion = trending market, AI models are active, signals can fire\n"
+            "• Accumulation = range-bound, institutions building positions, system holds\n"
+            "• Exhaustion = trend losing energy, system holds to avoid catching reversals"
         )
+    
     elif intent == "show_performance":
         perf = context.get("performance", {})
         return (
-            f"Here is our recent Performance Summary:\n\n"
-            f"Win Rate: {perf.get('win_rate', 'N/A')}%\n"
-            f"Max Drawdown: {perf.get('max_drawdown_pct', 'N/A')}%\n"
-            f"Expectancy: {perf.get('expectancy', 'N/A')}\n"
-            f"Sharpe Ratio: {perf.get('sharpe_ratio', 'N/A')}"
-        )
-    elif intent == "navigate_website":
-        if "journal" in msg_lower:
-            return "The Trade Journal tab tracks all your simulated trades. It records entry, SL, TP, and automatically calculates your running Win Rate and profit. It saves directly to your browser's local storage automatically."
-        elif "timeline" in msg_lower or "history" in msg_lower:
-            return "The vertical Signal Timeline on the right logs every signal the AI generates. You can click any entry to expand it and see exactly which decision gates passed or failed."
-        elif "dark mode" in msg_lower or "theme" in msg_lower:
-            return "You can enable Dark Mode using the Sun or Moon icon located in the top navigation bar. We will remember your preference for your next visit."
-        elif "ticker" in msg_lower or "price" in msg_lower:
-            return "The scrolling Price Ticker below the navigation shows live Bid to Ask spreads and flashes green and red as prices move. If you click on a pair, it will instantly switch the dashboard to that instrument."
-        elif "demo" in msg_lower or "trade" in msg_lower:
-            return "You can use the 'Demo BUY' or 'Demo SELL' buttons at the top of the screen to place simulated trades for practice. These will immediately appear in the Signal Timeline and Trade Journal so you can track your success."
-        return (
-            "I can help you understand the dashboard features! You can ask me about the Trade Journal, the Signal Timeline, the Price Ticker, or how to use Dark Mode."
+            f"📈 Performance Summary\n\n"
+            f"• Win Rate: {perf.get('win_rate', 'N/A')}%\n"
+            f"• Max Drawdown: {perf.get('max_drawdown_pct', 'N/A')}%\n"
+            f"• Expectancy: {perf.get('expectancy', 'N/A')}\n"
+            f"• Sharpe Ratio: {perf.get('sharpe_ratio', 'N/A')}"
         )
 
+    # Try knowledge base for technical questions
+    knowledge = _get_relevant_knowledge(user_message)
+    if knowledge:
+        return f"💡 {knowledge}"
+
+    # Try glossary for educational questions
+    for term, explanation in FOREX_GLOSSARY.items():
+        if term in msg_lower:
+            return f"💡 {term.upper()}: {explanation}"
+
+    # Smart fallback: answer trade-related questions using market state
+    if any(w in msg_lower for w in ["trade", "signal", "buy", "sell", "hold", "entry", "position", "should i"]):
+        failed = [k for k, v in gate_log.items() if v is False]
+        if decision == "HOLD":
+            return (
+                f"📊 Current Signal: {decision} (Regime: {regime})\n\n"
+                f"Right now the system is on HOLD because {len(failed)} safety gate(s) haven't passed yet.\n"
+                f"Failed gates: {', '.join(failed) if failed else 'checking...'}\n\n"
+                "The AI won't generate a BUY or SELL until all 7 gates pass simultaneously. "
+                "This protects you from taking trades in unfavorable conditions.\n\n"
+                "💡 Ask me 'why HOLD?' for a detailed gate-by-gate breakdown!"
+            )
+        else:
+            return (
+                f"📊 Current Signal: {decision} (Regime: {regime})\n\n"
+                f"Confidence: {signal.get('ensemble_probability', 'N/A')}\n"
+                f"All 7 safety gates have passed! The system has generated a {decision} signal.\n\n"
+                "Check the Signal Timeline on the right for full details."
+            )
+
     return (
-        "I'm here to assist you! You can ask me about trading signals, such as 'Why HOLD?' or 'What is the current signal?'\n\n"
-        "You can ask me to explain Forex terms like 'What is a pip?' or 'Explain leverage.'\n\n"
-        "If you want to view our metrics, try 'Show win rate' or 'What is the Sharpe ratio?'\n\n"
-        "I can also guide you around the platform. Just ask 'Where are my trades?' or 'How do I use dark mode?'"
+        "Hey! I'm ForeXtron, your AI trading assistant 🧠\n\n"
+        f"Current Market: {decision} signal | {regime} regime\n\n"
+        "I can help with:\n"
+        "• Signals: 'Why HOLD?' or 'What's the current signal?'\n"
+        "• Forex concepts: 'What is a pip?' or 'Explain BoS'\n"
+        "• Platform: 'Where is the Trade Journal?'\n"
+        "• Architecture: 'How does PatchTST work?'\n\n"
+        "What would you like to know?"
     )

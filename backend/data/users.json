@@ -14,5 +14,61 @@
         "balance": 10045.199999999999,
         "created_at": "2026-04-03T15:46:20.980281+05:30",
         "_id": "588449e2-8109-449d-859c-fff3b57dd63e"
+    },
+    {
+        "email": "afva@gmail.com",
+        "hashed_password": "$2b$12$TA6iC8wWHO2sSxzusrlkZ.J2iF1DfE8lFvaT53H7vi1ouIdJegQjy",
+        "name": "adav",
+        "balance": 10054.48,
+        "created_at": "2026-04-04T23:20:52.254181+05:30",
+        "_id": "fe39b0db-506b-42a2-bc97-e6c412a4b426"
+    },
+    {
+        "email": "test@example.com",
+        "hashed_password": "$2b$12$zDGBrg8dO0hbDBhquwPGYu.RgojYtGDs2Cs1KXc3SOHlrkJVtFb7y",
+        "name": "Test User",
+        "balance": 10000.0,
+        "created_at": "2026-04-04T23:22:16.489522+05:30",
+        "_id": "ab540d91-2b07-46a7-9c55-6b24dcb636f9"
+    },
+    {
+        "email": "anas.sarablackpink@gmail.com",
+        "hashed_password": "$2b$12$2Ca8gQMv5DQUyIttnTo55e/lHU7mU.MvlyHRC3llRar09DawLAXtK",
+        "name": "Anas",
+        "balance": 10000.0,
+        "created_at": "2026-04-04T23:31:20.353478+05:30",
+        "_id": "09adab5f-b8b5-478d-be56-c070993e92d3"
+    },
+    {
+        "email": "acfv@gmail.com",
+        "hashed_password": "$2b$12$OAT6CnxyFlmxXxoT5K71FeiEPIg1ZSvuMWAe0RXTAq.pGddSuiIt6",
+        "name": "dwacw",
+        "balance": 9994.03,
+        "created_at": "2026-04-05T03:05:35.531057+05:30",
+        "_id": "3b0ae5b1-18f8-4bcd-85af-4c552da55297"
+    },
+    {
+        "email": "fix_test@example.com",
+        "hashed_password": "$2b$12$WsXx7.aVMWC.l27wb1Vf3.FwKZ6C9DbSY.XDE7P5tBG9jD78iTWTG",
+        "name": "Test Fix",
+        "balance": 10007.07,
+        "created_at": "2026-04-05T03:06:05.294327+05:30",
+        "_id": "f4825a24-b1fd-4fc7-81ac-38978bffbe76"
+    },
+    {
+        "email": "anas@forextron.com",
+        "hashed_password": "$2b$12$vXi0GrhfjxJbL59TmiN9puLYL6Aay.0Fq2S81QYb2tSKb3kIIo6Pq",
+        "name": "Anas Mohammed",
+        "balance": 10000.0,
+        "created_at": "2026-04-05T15:05:17.855681+05:30",
+        "_id": "39f04f0a-c5ef-4c7d-864b-10ea26ad2724"
+    },
+    {
+        "email": "esgqv@gmail.com",
+        "hashed_password": "$2b$12$5sUwmD8KQP9Eei2Po/wntOo5ZND2q7bOaz768dFPb2ExD2c17Ed2q",
+        "name": "fave",
+        "balance": 10041.539999999999,
+        "created_at": "2026-04-05T15:07:56.737326+05:30",
+        "_id": "20c9c458-0cc2-424e-a7ce-e911fe2df686"
     }
 ]

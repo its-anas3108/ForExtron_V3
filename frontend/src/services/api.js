@@ -20,6 +20,7 @@ api.interceptors.request.use((config) => {
 // ── Signals ──────────────────────────────────────────────────────────────────
 export const getSignal = (pair) => api.get(`/signal/${pair}`).then(r => r.data)
 export const getSignalHistory = (pair, limit = 50) => api.get(`/signals/history/${pair}?limit=${limit}`).then(r => r.data)
+export const getCandles = (pair, limit = 100) => api.get(`/candles/${pair}?limit=${limit}`).then(r => r.data)
 export const getInstruments = () => api.get('/instruments').then(r => r.data)
 
 // ── Regime ───────────────────────────────────────────────────────────────────

@@ -117,9 +117,7 @@ export default function NewsPanel({ instrument }) {
                 getNewsImpact(instrument || 'EUR_USD'),
             ])
             if (feedRes.status === 'fulfilled') {
-                const today = new Date().toDateString();
-                const todayEvents = (feedRes.value.events || []).filter(e => new Date(e.timestamp).toDateString() === today);
-                setFeed(todayEvents);
+                setFeed(feedRes.value.events || []);
             }
             if (impactRes.status === 'fulfilled') setImpact(impactRes.value)
         } catch (err) {

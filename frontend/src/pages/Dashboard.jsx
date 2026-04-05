@@ -20,7 +20,7 @@ import AccountSummary from './AccountSummary.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../components/ToastProvider.jsx'
 import { useWebSocket } from '../services/websocket.js'
-import { getSignal, getPerformance, getAgentStatus, getSignalHistory, getInstruments, triggerDemoSignal } from '../services/api.js'
+import { getSignal, getPerformance, getAgentStatus, getSignalHistory, getInstruments, triggerDemoSignal, getCandles } from '../services/api.js'
 
 const INR_PAIRS = ['USD_INR', 'EUR_INR', 'GBP_INR']
 
@@ -65,16 +65,21 @@ export default function Dashboard() {
     const fetchAll = useCallback(async () => {
         setLoading(true)
         try {
-            const [sig, perf, agents, history] = await Promise.allSettled([
+            const [sig, perf, agents, history, initialCandles] = await Promise.allSettled([
                 getSignal(instrument),
                 getPerformance(instrument),
                 getAgentStatus(),
                 getSignalHistory(instrument, 50),
+                getCandles(instrument, 100),
             ])
             if (sig.status === 'fulfilled') setSignal(sig.value)
             if (perf.status === 'fulfilled') setPerformance(perf.value)
             if (agents.status === 'fulfilled') setAgentStatus(agents.value)
             if (history.status === 'fulfilled') setSignalHistory(history.value)
+            if (initialCandles.status === 'fulfilled') {
+                const candleData = initialCandles.value
+                setCandles(Array.isArray(candleData) ? candleData : (candleData?.candles || []))
+            }
             setLastUpdated(new Date())
         } catch (e) {
             console.error('Fetch error:', e)
